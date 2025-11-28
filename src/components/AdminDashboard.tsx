@@ -1,0 +1,620 @@
+import { useState } from 'react';
+import {
+  LayoutDashboard,
+  Package,
+  ShoppingBag,
+  BarChart3,
+  Users,
+  Settings,
+  TrendingUp,
+  DollarSign,
+  ShoppingCart,
+  Eye,
+} from 'lucide-react';
+import { allProducts } from '../data/products';
+
+export default function AdminDashboard() {
+  const [activeTab, setActiveTab] = useState('dashboard');
+
+  const tabs = [
+    { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard },
+    { id: 'products', name: 'Products', icon: Package },
+    { id: 'orders', name: 'Orders', icon: ShoppingBag },
+    { id: 'analytics', name: 'Analytics', icon: BarChart3 },
+    { id: 'users', name: 'Users', icon: Users },
+    { id: 'settings', name: 'Settings', icon: Settings },
+  ];
+
+  return (
+    <div className="min-h-screen pt-16 bg-white">
+      <div className="flex">
+        <aside className="w-56 fixed left-0 top-16 h-[calc(100vh-4rem)] bg-white border-r border-charcoal/5 p-4">
+          <nav className="space-y-1">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 transition-all text-xs font-normal tracking-wider uppercase ${
+                    activeTab === tab.id
+                      ? 'bg-gold text-white'
+                      : 'hover:bg-pearl/30 text-charcoal'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span>{tab.name}</span>
+                </button>
+              );
+            })}
+          </nav>
+        </aside>
+
+        <main className="ml-56 flex-1 p-8">
+          {activeTab === 'dashboard' && <DashboardView />}
+          {activeTab === 'products' && <ProductsView />}
+          {activeTab === 'orders' && <OrdersView />}
+          {activeTab === 'analytics' && <AnalyticsView />}
+          {activeTab === 'users' && <UsersView />}
+          {activeTab === 'settings' && <SettingsView />}
+        </main>
+      </div>
+    </div>
+  );
+}
+
+function DashboardView() {
+  const stats = {
+    totalRevenue: 147250,
+    totalOrders: 342,
+    totalProducts: allProducts.length,
+    activeUsers: 1248,
+  };
+
+  const statCards = [
+    {
+      label: 'Total Revenue',
+      value: `$${stats.totalRevenue.toLocaleString()}`,
+      icon: DollarSign,
+      change: '+12.5%'
+    },
+    {
+      label: 'Total Orders',
+      value: stats.totalOrders,
+      icon: ShoppingCart,
+      change: '+8.3%'
+    },
+    {
+      label: 'Products',
+      value: stats.totalProducts,
+      icon: Package,
+      change: '+3 new'
+    },
+    {
+      label: 'Active Users',
+      value: stats.activeUsers,
+      icon: Users,
+      change: '+23.1%'
+    },
+  ];
+
+  return (
+    <div className="space-y-8 animate-fade-in-up">
+      <div>
+        <h1 className="text-2xl font-serif font-light text-charcoal mb-1 tracking-wide">Dashboard</h1>
+        <p className="text-xs text-charcoal/50 uppercase tracking-widest">Admin Panel Overview</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {statCards.map((stat, index) => {
+          const Icon = stat.icon;
+          return (
+            <div
+              key={stat.label}
+              className="bg-white border border-charcoal/5 p-5 animate-fade-in-up hover:border-gold/20 transition-all"
+              style={{ animationDelay: `${index * 0.05}s` }}
+            >
+              <div className="flex items-start justify-between mb-3">
+                <Icon className="w-5 h-5 text-gold" />
+                <span className="text-[10px] text-green-600 font-medium">{stat.change}</span>
+              </div>
+              <p className="text-[10px] text-charcoal/50 mb-1 uppercase tracking-wider">{stat.label}</p>
+              <p className="text-2xl font-light text-charcoal">{stat.value}</p>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white border border-charcoal/5 p-6">
+          <h2 className="text-lg font-serif font-light text-charcoal mb-6 tracking-wide">Weekly Sales</h2>
+          <div className="h-64 flex items-end justify-between gap-3">
+            {[4200, 5800, 4900, 7200, 6300, 8500, 7800].map((value, index) => {
+              const maxValue = 8500;
+              const height = (value / maxValue) * 100;
+              return (
+                <div key={index} className="flex-1 flex flex-col items-center gap-2">
+                  <div className="text-[10px] text-charcoal/60 font-light mb-1">
+                    ${(value / 1000).toFixed(1)}k
+                  </div>
+                  <div
+                    className="w-full bg-gold/80 transition-all hover:bg-gold"
+                    style={{ height: `${height}%` }}
+                  />
+                  <span className="text-[10px] text-charcoal/40">
+                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][index]}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="bg-white border border-charcoal/5 p-6">
+          <h2 className="text-lg font-serif font-light text-charcoal mb-6 tracking-wide">Category Distribution</h2>
+          <div className="space-y-4">
+            <div>
+              <div className="flex justify-between text-xs mb-2">
+                <span className="text-charcoal/70">Luxury Healing</span>
+                <span className="text-charcoal font-light">6 items (19%)</span>
+              </div>
+              <div className="h-2 bg-pearl/30 overflow-hidden">
+                <div className="h-full bg-gold" style={{ width: '19%' }} />
+              </div>
+            </div>
+            <div>
+              <div className="flex justify-between text-xs mb-2">
+                <span className="text-charcoal/70">Fashion Bracelets</span>
+                <span className="text-charcoal font-light">25 items (81%)</span>
+              </div>
+              <div className="h-2 bg-pearl/30 overflow-hidden">
+                <div className="h-full bg-champagne" style={{ width: '81%' }} />
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 pt-6 border-t border-charcoal/5">
+            <h3 className="text-xs text-charcoal/50 uppercase tracking-wider mb-4">Recent Activity</h3>
+            <div className="space-y-3">
+              {[
+                'New order #3428 received',
+                'Crystal Tennis Bracelet restocked',
+                '12 new users registered',
+                'Rose Quartz bracelet review added'
+              ].map((activity, index) => (
+                <div key={index} className="flex items-center gap-3 text-xs text-charcoal/70">
+                  <div className="w-1.5 h-1.5 rounded-full bg-gold" />
+                  {activity}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProductsView() {
+  return (
+    <div className="space-y-6 animate-fade-in-up">
+      <div>
+        <h1 className="text-2xl font-serif font-light text-charcoal mb-1 tracking-wide">Products</h1>
+        <p className="text-xs text-charcoal/50">{allProducts.length} items in catalog</p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {allProducts.map((product) => (
+          <div
+            key={product.id}
+            className="bg-white border border-charcoal/5 p-4 hover:border-gold/20 transition-all"
+          >
+            <div className="flex gap-4">
+              <img
+                src={product.image_url}
+                alt={product.name}
+                className="w-24 h-24 object-cover border border-charcoal/5"
+              />
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-light text-charcoal mb-1 truncate">{product.name}</h3>
+                <p className="text-xs text-charcoal/60 mb-2">{product.category}</p>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-light text-gold">${product.price}</span>
+                  <span className="text-[10px] text-charcoal/50 uppercase tracking-wider bg-green-50 px-2 py-0.5">
+                    Stock: {product.stock_count}
+                  </span>
+                </div>
+                {product.stone_type && (
+                  <p className="text-[10px] text-charcoal/40 mt-2">{product.stone_type}</p>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function OrdersView() {
+  const orders = [
+    { id: '#3428', customer: 'Sarah Johnson', items: 2, total: 2870, status: 'Processing', date: '2025-11-13' },
+    { id: '#3427', customer: 'Michael Chen', items: 1, total: 89, status: 'Shipped', date: '2025-11-13' },
+    { id: '#3426', customer: 'Emma Williams', items: 3, total: 267, status: 'Delivered', date: '2025-11-12' },
+    { id: '#3425', customer: 'James Brown', items: 1, total: 2450, status: 'Processing', date: '2025-11-12' },
+    { id: '#3424', customer: 'Olivia Davis', items: 2, total: 178, status: 'Shipped', date: '2025-11-11' },
+    { id: '#3423', customer: 'William Miller', items: 1, total: 95, status: 'Delivered', date: '2025-11-11' },
+    { id: '#3422', customer: 'Sophia Garcia', items: 4, total: 352, status: 'Delivered', date: '2025-11-10' },
+    { id: '#3421', customer: 'Benjamin Wilson', items: 1, total: 2650, status: 'Processing', date: '2025-11-10' },
+  ];
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'Processing': return 'bg-yellow-50 text-yellow-700';
+      case 'Shipped': return 'bg-blue-50 text-blue-700';
+      case 'Delivered': return 'bg-green-50 text-green-700';
+      default: return 'bg-gray-50 text-gray-700';
+    }
+  };
+
+  return (
+    <div className="space-y-6 animate-fade-in-up">
+      <div>
+        <h1 className="text-2xl font-serif font-light text-charcoal mb-1 tracking-wide">Orders</h1>
+        <p className="text-xs text-charcoal/50">{orders.length} recent orders</p>
+      </div>
+
+      <div className="bg-white border border-charcoal/5 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-pearl/20 border-b border-charcoal/5">
+              <tr>
+                <th className="text-left px-4 py-3 text-[10px] font-normal text-charcoal/60 uppercase tracking-wider">Order ID</th>
+                <th className="text-left px-4 py-3 text-[10px] font-normal text-charcoal/60 uppercase tracking-wider">Customer</th>
+                <th className="text-left px-4 py-3 text-[10px] font-normal text-charcoal/60 uppercase tracking-wider">Items</th>
+                <th className="text-left px-4 py-3 text-[10px] font-normal text-charcoal/60 uppercase tracking-wider">Total</th>
+                <th className="text-left px-4 py-3 text-[10px] font-normal text-charcoal/60 uppercase tracking-wider">Status</th>
+                <th className="text-left px-4 py-3 text-[10px] font-normal text-charcoal/60 uppercase tracking-wider">Date</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-charcoal/5">
+              {orders.map((order) => (
+                <tr key={order.id} className="hover:bg-pearl/10 transition-colors">
+                  <td className="px-4 py-3 text-xs font-light text-charcoal">{order.id}</td>
+                  <td className="px-4 py-3 text-xs text-charcoal/80">{order.customer}</td>
+                  <td className="px-4 py-3 text-xs text-charcoal/60">{order.items}</td>
+                  <td className="px-4 py-3 text-xs font-light text-gold">${order.total}</td>
+                  <td className="px-4 py-3">
+                    <span className={`px-2 py-0.5 text-[10px] font-normal uppercase tracking-wider ${getStatusColor(order.status)}`}>
+                      {order.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-charcoal/50">{order.date}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AnalyticsView() {
+  const metrics = [
+    { label: 'Conversion Rate', value: '3.24%', trend: '+0.5%', icon: TrendingUp },
+    { label: 'Average Order Value', value: '$430', trend: '+12%', icon: DollarSign },
+    { label: 'Page Views', value: '24,532', trend: '+18%', icon: Eye },
+    { label: 'Cart Abandonment', value: '68.5%', trend: '-3.2%', icon: ShoppingCart },
+  ];
+
+  const topProducts = [
+    { name: 'Celestial Amethyst Healing Bracelet', sales: 45, revenue: 129150 },
+    { name: 'Crystal Tennis Bracelet', sales: 128, revenue: 11392 },
+    { name: 'Rose Quartz Divine Love Bracelet', sales: 38, revenue: 93100 },
+    { name: 'Pearl Strand Bracelet', sales: 96, revenue: 9120 },
+    { name: 'Jade Prosperity Bracelet', sales: 31, revenue: 82150 },
+  ];
+
+  return (
+    <div className="space-y-6 animate-fade-in-up">
+      <div>
+        <h1 className="text-2xl font-serif font-light text-charcoal mb-1 tracking-wide">Analytics</h1>
+        <p className="text-xs text-charcoal/50 uppercase tracking-widest">Performance Metrics</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {metrics.map((metric, index) => {
+          const Icon = metric.icon;
+          return (
+            <div
+              key={metric.label}
+              className="bg-white border border-charcoal/5 p-5"
+              style={{ animationDelay: `${index * 0.05}s` }}
+            >
+              <div className="flex items-start justify-between mb-3">
+                <Icon className="w-5 h-5 text-gold" />
+                <span className="text-[10px] text-green-600 font-medium">{metric.trend}</span>
+              </div>
+              <p className="text-[10px] text-charcoal/50 mb-1 uppercase tracking-wider">{metric.label}</p>
+              <p className="text-2xl font-light text-charcoal">{metric.value}</p>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="bg-white border border-charcoal/5 p-6">
+        <h2 className="text-lg font-serif font-light text-charcoal mb-6 tracking-wide">Top Selling Products</h2>
+        <div className="space-y-4">
+          {topProducts.map((product, index) => (
+            <div key={index} className="flex items-center justify-between py-3 border-b border-charcoal/5 last:border-0">
+              <div className="flex-1">
+                <p className="text-xs text-charcoal/80 mb-1">{product.name}</p>
+                <p className="text-[10px] text-charcoal/50">{product.sales} units sold</p>
+              </div>
+              <p className="text-sm font-light text-gold">${product.revenue.toLocaleString()}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white border border-charcoal/5 p-6">
+          <h2 className="text-lg font-serif font-light text-charcoal mb-6 tracking-wide">Traffic Sources</h2>
+          <div className="space-y-4">
+            {[
+              { source: 'Organic Search', percentage: 42, visitors: 10305 },
+              { source: 'Direct', percentage: 28, visitors: 6869 },
+              { source: 'Social Media', percentage: 18, visitors: 4416 },
+              { source: 'Email', percentage: 12, visitors: 2944 },
+            ].map((item) => (
+              <div key={item.source}>
+                <div className="flex justify-between text-xs mb-2">
+                  <span className="text-charcoal/70">{item.source}</span>
+                  <span className="text-charcoal font-light">{item.percentage}% ({item.visitors.toLocaleString()})</span>
+                </div>
+                <div className="h-2 bg-pearl/30 overflow-hidden">
+                  <div className="h-full bg-gold" style={{ width: `${item.percentage}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white border border-charcoal/5 p-6">
+          <h2 className="text-lg font-serif font-light text-charcoal mb-6 tracking-wide">Customer Insights</h2>
+          <div className="space-y-6">
+            <div>
+              <p className="text-xs text-charcoal/50 uppercase tracking-wider mb-3">New vs Returning</p>
+              <div className="flex gap-4">
+                <div className="flex-1 bg-pearl/20 p-4 text-center">
+                  <p className="text-2xl font-light text-charcoal mb-1">37%</p>
+                  <p className="text-[10px] text-charcoal/60 uppercase tracking-wider">New</p>
+                </div>
+                <div className="flex-1 bg-gold/10 p-4 text-center">
+                  <p className="text-2xl font-light text-charcoal mb-1">63%</p>
+                  <p className="text-[10px] text-charcoal/60 uppercase tracking-wider">Returning</p>
+                </div>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs text-charcoal/50 uppercase tracking-wider mb-3">Average Session Duration</p>
+              <p className="text-3xl font-light text-charcoal">4m 32s</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UsersView() {
+  const users = [
+    { name: 'Sarah Johnson', email: 'sarah.j@email.com', orders: 12, spent: 3240, joined: '2024-08-15', status: 'VIP' },
+    { name: 'Michael Chen', email: 'mchen@email.com', orders: 8, spent: 1890, joined: '2024-09-22', status: 'Regular' },
+    { name: 'Emma Williams', email: 'emma.w@email.com', orders: 15, spent: 4560, joined: '2024-07-10', status: 'VIP' },
+    { name: 'James Brown', email: 'jbrown@email.com', orders: 5, spent: 980, joined: '2024-10-05', status: 'Regular' },
+    { name: 'Olivia Davis', email: 'olivia.d@email.com', orders: 3, spent: 450, joined: '2024-11-01', status: 'New' },
+    { name: 'William Miller', email: 'wmiller@email.com', orders: 9, spent: 2150, joined: '2024-08-28', status: 'Regular' },
+  ];
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'VIP': return 'bg-gold/20 text-gold';
+      case 'Regular': return 'bg-blue-50 text-blue-700';
+      case 'New': return 'bg-green-50 text-green-700';
+      default: return 'bg-gray-50 text-gray-700';
+    }
+  };
+
+  return (
+    <div className="space-y-6 animate-fade-in-up">
+      <div>
+        <h1 className="text-2xl font-serif font-light text-charcoal mb-1 tracking-wide">Users</h1>
+        <p className="text-xs text-charcoal/50">1,248 registered users</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="bg-white border border-charcoal/5 p-5">
+          <p className="text-[10px] text-charcoal/50 mb-2 uppercase tracking-wider">Total Users</p>
+          <p className="text-2xl font-light text-charcoal">1,248</p>
+          <p className="text-[10px] text-green-600 mt-1">+23.1% this month</p>
+        </div>
+        <div className="bg-white border border-charcoal/5 p-5">
+          <p className="text-[10px] text-charcoal/50 mb-2 uppercase tracking-wider">VIP Members</p>
+          <p className="text-2xl font-light text-charcoal">147</p>
+          <p className="text-[10px] text-gold mt-1">11.8% of users</p>
+        </div>
+        <div className="bg-white border border-charcoal/5 p-5">
+          <p className="text-[10px] text-charcoal/50 mb-2 uppercase tracking-wider">Active Today</p>
+          <p className="text-2xl font-light text-charcoal">89</p>
+          <p className="text-[10px] text-charcoal/60 mt-1">7.1% activity rate</p>
+        </div>
+      </div>
+
+      <div className="bg-white border border-charcoal/5 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-pearl/20 border-b border-charcoal/5">
+              <tr>
+                <th className="text-left px-4 py-3 text-[10px] font-normal text-charcoal/60 uppercase tracking-wider">Name</th>
+                <th className="text-left px-4 py-3 text-[10px] font-normal text-charcoal/60 uppercase tracking-wider">Email</th>
+                <th className="text-left px-4 py-3 text-[10px] font-normal text-charcoal/60 uppercase tracking-wider">Orders</th>
+                <th className="text-left px-4 py-3 text-[10px] font-normal text-charcoal/60 uppercase tracking-wider">Total Spent</th>
+                <th className="text-left px-4 py-3 text-[10px] font-normal text-charcoal/60 uppercase tracking-wider">Status</th>
+                <th className="text-left px-4 py-3 text-[10px] font-normal text-charcoal/60 uppercase tracking-wider">Joined</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-charcoal/5">
+              {users.map((user, index) => (
+                <tr key={index} className="hover:bg-pearl/10 transition-colors">
+                  <td className="px-4 py-3 text-xs font-light text-charcoal">{user.name}</td>
+                  <td className="px-4 py-3 text-xs text-charcoal/60">{user.email}</td>
+                  <td className="px-4 py-3 text-xs text-charcoal/60">{user.orders}</td>
+                  <td className="px-4 py-3 text-xs font-light text-gold">${user.spent.toLocaleString()}</td>
+                  <td className="px-4 py-3">
+                    <span className={`px-2 py-0.5 text-[10px] font-normal uppercase tracking-wider ${getStatusColor(user.status)}`}>
+                      {user.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-charcoal/50">{user.joined}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SettingsView() {
+  return (
+    <div className="space-y-6 animate-fade-in-up">
+      <div>
+        <h1 className="text-2xl font-serif font-light text-charcoal mb-1 tracking-wide">Settings</h1>
+        <p className="text-xs text-charcoal/50 uppercase tracking-widest">Store Configuration</p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white border border-charcoal/5 p-6">
+          <h2 className="text-sm font-light text-charcoal mb-4 tracking-wide">Store Information</h2>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-[10px] text-charcoal/60 uppercase tracking-wider mb-2">Store Name</label>
+              <input
+                type="text"
+                defaultValue="Crystal Casting Jewelers"
+                className="w-full px-3 py-2 border border-charcoal/10 text-xs focus:outline-none focus:border-gold"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] text-charcoal/60 uppercase tracking-wider mb-2">Store Email</label>
+              <input
+                type="email"
+                defaultValue="info@ccjewelers.com"
+                className="w-full px-3 py-2 border border-charcoal/10 text-xs focus:outline-none focus:border-gold"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] text-charcoal/60 uppercase tracking-wider mb-2">Phone Number</label>
+              <input
+                type="tel"
+                defaultValue="+1 (555) 123-4567"
+                className="w-full px-3 py-2 border border-charcoal/10 text-xs focus:outline-none focus:border-gold"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white border border-charcoal/5 p-6">
+          <h2 className="text-sm font-light text-charcoal mb-4 tracking-wide">Business Hours</h2>
+          <div className="space-y-3">
+            {[
+              { day: 'Monday - Friday', hours: '9:00 AM - 8:00 PM' },
+              { day: 'Saturday', hours: '10:00 AM - 6:00 PM' },
+              { day: 'Sunday', hours: '12:00 PM - 5:00 PM' },
+            ].map((schedule, index) => (
+              <div key={index} className="flex justify-between items-center py-2 border-b border-charcoal/5 last:border-0">
+                <span className="text-xs text-charcoal/70">{schedule.day}</span>
+                <span className="text-xs text-charcoal font-light">{schedule.hours}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white border border-charcoal/5 p-6">
+          <h2 className="text-sm font-light text-charcoal mb-4 tracking-wide">Shipping Settings</h2>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between py-2 border-b border-charcoal/5">
+              <span className="text-xs text-charcoal/70">Free Shipping Threshold</span>
+              <span className="text-xs text-charcoal font-light">$100</span>
+            </div>
+            <div className="flex items-center justify-between py-2 border-b border-charcoal/5">
+              <span className="text-xs text-charcoal/70">Standard Shipping</span>
+              <span className="text-xs text-charcoal font-light">$9.99</span>
+            </div>
+            <div className="flex items-center justify-between py-2 border-b border-charcoal/5">
+              <span className="text-xs text-charcoal/70">Express Shipping</span>
+              <span className="text-xs text-charcoal font-light">$24.99</span>
+            </div>
+            <div className="flex items-center justify-between py-2">
+              <span className="text-xs text-charcoal/70">International Shipping</span>
+              <span className="text-xs text-charcoal font-light">Calculated</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white border border-charcoal/5 p-6">
+          <h2 className="text-sm font-light text-charcoal mb-4 tracking-wide">Categories</h2>
+          <div className="space-y-3">
+            {[
+              { name: 'Luxury Healing', count: 6, active: true },
+              { name: 'Fashion', count: 25, active: true },
+              { name: 'Necklaces', count: 0, active: false },
+              { name: 'Earrings', count: 0, active: false },
+            ].map((category, index) => (
+              <div key={index} className="flex items-center justify-between py-2 border-b border-charcoal/5 last:border-0">
+                <div className="flex items-center gap-3">
+                  <div className={`w-2 h-2 rounded-full ${category.active ? 'bg-green-500' : 'bg-gray-300'}`} />
+                  <span className="text-xs text-charcoal/70">{category.name}</span>
+                </div>
+                <span className="text-xs text-charcoal/50">{category.count} items</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white border border-charcoal/5 p-6">
+        <h2 className="text-sm font-light text-charcoal mb-4 tracking-wide">SEO Settings</h2>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-[10px] text-charcoal/60 uppercase tracking-wider mb-2">Meta Title</label>
+            <input
+              type="text"
+              defaultValue="Crystal Casting Jewelers - Premium Healing & Fashion Bracelets"
+              className="w-full px-3 py-2 border border-charcoal/10 text-xs focus:outline-none focus:border-gold"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] text-charcoal/60 uppercase tracking-wider mb-2">Meta Description</label>
+            <textarea
+              rows={3}
+              defaultValue="Discover our exquisite collection of luxury healing crystal bracelets and affordable AAA quality fashion bracelets. Hand-selected gemstones, premium materials, and timeless designs."
+              className="w-full px-3 py-2 border border-charcoal/10 text-xs focus:outline-none focus:border-gold resize-none"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] text-charcoal/60 uppercase tracking-wider mb-2">Keywords</label>
+            <input
+              type="text"
+              defaultValue="healing bracelets, crystal jewelry, fashion bracelets, gemstone bracelets, luxury jewelry"
+              className="w-full px-3 py-2 border border-charcoal/10 text-xs focus:outline-none focus:border-gold"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

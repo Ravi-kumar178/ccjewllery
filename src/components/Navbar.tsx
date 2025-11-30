@@ -16,6 +16,7 @@ export default function Navbar({ onNavigate, currentPage }: NavbarProps) {
     { name: 'Collection', href: 'store' },
     { name: 'About', href: 'about' },
     { name: 'Admin', href: 'admin' },
+    { name: 'Contact', href: 'contact'}
   ];
 
   return (

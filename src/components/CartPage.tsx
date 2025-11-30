@@ -1,5 +1,6 @@
 import { Minus, Plus, Trash2, ArrowLeft } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
+import { useState } from 'react';
 
 interface CartPageProps {
   onNavigate: (page: string) => void;
@@ -7,6 +8,47 @@ interface CartPageProps {
 
 export default function CartPage({ onNavigate }: CartPageProps) {
   const { items, removeItem, updateQuantity, total, clearCart } = useCart();
+
+  const [showCheckoutForm, setShowCheckoutForm] = useState(false);
+  const [error, setError] = useState("");
+
+
+  const [formData, setFormData] = useState({
+      firstName: "",
+      lastName: "",
+      email: "",
+      street: "",
+      city: "",
+      state: "",
+      zip: "",
+      country: "",
+      phone: "",
+  });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData(prev => ({
+      ...prev,
+      [e.target.name]: e.target.value
+    }));
+  };
+
+  const handlePlaceOrder = () => {
+    // Check if any field is empty
+    for (const key in formData) {
+      // @ts-ignore
+      if (!formData[key]?.trim()) {
+        setError("Please fill all required fields.");
+        return;
+      }
+    }
+
+    // If all good
+    setError("");
+    console.log("Order Placed:", formData);
+    alert("Order placed successfully!");
+  };
+
+
 
   if (items.length === 0) {
     return (
@@ -38,6 +80,8 @@ export default function CartPage({ onNavigate }: CartPageProps) {
   return (
     <div className="min-h-screen pt-28 pb-16 px-4">
       <div className="max-w-6xl mx-auto">
+        
+        {/* HEADER */}
         <div className="mb-8 flex items-center justify-between animate-fade-in-up">
           <div>
             <h1 className="text-4xl md:text-5xl font-serif font-bold text-charcoal mb-2">
@@ -56,9 +100,14 @@ export default function CartPage({ onNavigate }: CartPageProps) {
           </button>
         </div>
 
+        {/* MAIN GRID */}
         <div className="grid lg:grid-cols-3 gap-8">
+
+          {/* LEFT SIDE — CART ITEMS or CHECKOUT FORM */}
           <div className="lg:col-span-2 space-y-4">
-            {items.map((item, index) => (
+
+            {/* IF NOT CHECKOUT → SHOW CART ITEMS */}
+            {!showCheckoutForm && items.map((item, index) => (
               <div
                 key={item.id}
                 className="glass-card rounded-2xl p-6 hover-lift animate-fade-in-up"
@@ -115,8 +164,114 @@ export default function CartPage({ onNavigate }: CartPageProps) {
                 </div>
               </div>
             ))}
+
+            {/* IF CHECKOUT → SHOW FORM */}
+            {showCheckoutForm && (
+              <div className="glass-card rounded-2xl p-8 animate-fade-in-up">
+                <h2 className="text-3xl font-serif font-bold text-charcoal mb-6">
+                  Checkout Details
+                </h2>
+
+                {/* FORM STATE */}
+                <form className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/** FIRST NAME */}
+                  <input
+                    required
+                    name="firstName"
+                    value={formData.firstName}
+                    onChange={handleChange}
+                    className="input border border-gold py-1.5 px-4 rounded-lg"
+                    placeholder="First Name"
+                  />
+
+                  {/** LAST NAME */}
+                  <input
+                    required
+                    name="lastName"
+                    value={formData.lastName}
+                    onChange={handleChange}
+                    className="input border border-gold py-1.5 px-4 rounded-lg"
+                    placeholder="Last Name"
+                  />
+
+                  {/** EMAIL */}
+                  <input
+                    required
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    className="input md:col-span-2 border border-gold py-1.5 px-4 rounded-lg"
+                    placeholder="Email Address"
+                  />
+
+                  {/** STREET */}
+                  <input
+                    required
+                    name="street"
+                    value={formData.street}
+                    onChange={handleChange}
+                    className="input md:col-span-2 border border-gold py-1.5 px-4 rounded-lg"
+                    placeholder="Street"
+                  />
+
+                  {/** CITY */}
+                  <input
+                    required
+                    name="city"
+                    value={formData.city}
+                    onChange={handleChange}
+                    className="input border border-gold py-1.5 px-4 rounded-lg"
+                    placeholder="City"
+                  />
+
+                  {/** STATE */}
+                  <input
+                    required
+                    name="state"
+                    value={formData.state}
+                    onChange={handleChange}
+                    className="input border border-gold py-1.5 px-4 rounded-lg"
+                    placeholder="State"
+                  />
+
+                  {/** ZIP */}
+                  <input
+                    required
+                    name="zip"
+                    value={formData.zip}
+                    onChange={handleChange}
+                    className="input border border-gold py-1.5 px-4 rounded-lg"
+                    placeholder="ZIP Code"
+                  />
+
+                  {/** COUNTRY */}
+                  <input
+                    required
+                    name="country"
+                    value={formData.country}
+                    onChange={handleChange}
+                    className="input border border-gold py-1.5 px-4 rounded-lg"
+                    placeholder="Country"
+                  />
+
+                  {/** PHONE */}
+                  <input
+                    required
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    className="input md:col-span-2 border border-gold py-1.5 px-4 rounded-lg"
+                    placeholder="Phone Number"
+                  />
+                </form>
+              </div>
+            )}
+
+
           </div>
 
+          {/* RIGHT SIDE — ORDER SUMMARY */}
           <div className="lg:col-span-1">
             <div className="glass-card rounded-2xl p-8 sticky top-28 animate-fade-in-up">
               <h2 className="text-2xl font-serif font-bold text-charcoal mb-6">
@@ -144,9 +299,24 @@ export default function CartPage({ onNavigate }: CartPageProps) {
                 </div>
               </div>
 
-              <button className="w-full py-4 bg-gold text-white rounded-xl hover:bg-gold/90 transition-all font-medium mb-4">
-                Proceed to Checkout
+              {/* BUTTON CHANGES TEXT */}
+              <button
+                onClick={() => {
+                  if (!showCheckoutForm) {
+                    setShowCheckoutForm(true);
+                  } else {
+                    handlePlaceOrder();
+                  }
+                }}
+                className="w-full py-4 bg-gold text-white rounded-xl hover:bg-gold/90 transition-all font-medium mb-4"
+              >
+                {showCheckoutForm ? "Place Order" : "Proceed to Checkout"}
               </button>
+              {error && (
+                <p className="text-red-600 text-sm mb-3 text-center">
+                  {error}
+                </p>
+              )}
 
               <button
                 onClick={clearCart}
@@ -162,6 +332,7 @@ export default function CartPage({ onNavigate }: CartPageProps) {
             </div>
           </div>
         </div>
+
       </div>
     </div>
   );

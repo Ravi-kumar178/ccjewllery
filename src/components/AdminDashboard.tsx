@@ -10,8 +10,11 @@ import {
   DollarSign,
   ShoppingCart,
   Eye,
+  CircleFadingPlus,
+  Trash2
 } from 'lucide-react';
 import { allProducts } from '../data/products';
+import Navbar from './Navbar';
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -19,6 +22,7 @@ export default function AdminDashboard() {
   const tabs = [
     { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard },
     { id: 'products', name: 'Products', icon: Package },
+    { id: 'add-product', name: 'Add Product', icon: CircleFadingPlus },
     { id: 'orders', name: 'Orders', icon: ShoppingBag },
     { id: 'analytics', name: 'Analytics', icon: BarChart3 },
     { id: 'users', name: 'Users', icon: Users },
@@ -28,6 +32,10 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen pt-16 bg-white">
       <div className="flex">
+        <Navbar 
+          currentPage={activeTab}
+          onNavigate={(page) => setActiveTab(page)}
+        />
         <aside className="w-56 fixed left-0 top-16 h-[calc(100vh-4rem)] bg-white border-r border-charcoal/5 p-4">
           <nav className="space-y-1">
             {tabs.map((tab) => {
@@ -52,11 +60,12 @@ export default function AdminDashboard() {
 
         <main className="ml-56 flex-1 p-8">
           {activeTab === 'dashboard' && <DashboardView />}
-          {activeTab === 'products' && <ProductsView />}
+          {activeTab === 'products' && <ProductsView onAddProduct={() => setActiveTab('add-product')} />}
           {activeTab === 'orders' && <OrdersView />}
           {activeTab === 'analytics' && <AnalyticsView />}
           {activeTab === 'users' && <UsersView />}
           {activeTab === 'settings' && <SettingsView />}
+          {activeTab === 'add-product' && <AddProduct onAdded={() => setActiveTab('products')}/>}
         </main>
       </div>
     </div>
@@ -195,43 +204,92 @@ function DashboardView() {
   );
 }
 
-function ProductsView() {
+function ProductsView({ onAddProduct }: { onAddProduct: () => void }) {
+  const handleDelete = async (id:String) => {
+  if (!confirm("Are you sure you want to delete this product?")) return;
+
+  try {
+    // await axios.delete(`/api/products/${id}`);
+    // setAllProducts(allProducts.filter((p) => p.id !== id));
+  } catch (err) {
+    console.error(err);
+  }
+};
+
   return (
     <div className="space-y-6 animate-fade-in-up">
-      <div>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-serif font-light text-charcoal mb-1 tracking-wide">Products</h1>
+          <p className="text-xs text-charcoal/50">{allProducts.length} items in catalog</p>
+        </div>
+        {/* Add Product Button */}
+        <button
+          className="px-4 py-2 rounded-lg text-sm font-light bg-gold text-white hover:bg-gold/90 transition-colors tracking-wide"
+          onClick={onAddProduct}
+        >
+          + Add Product
+        </button>
+      </div>
+      {/* <div>
         <h1 className="text-2xl font-serif font-light text-charcoal mb-1 tracking-wide">Products</h1>
         <p className="text-xs text-charcoal/50">{allProducts.length} items in catalog</p>
-      </div>
+      </div> */}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {allProducts.map((product) => (
           <div
             key={product.id}
-            className="bg-white border border-charcoal/5 p-4 hover:border-gold/20 transition-all"
+            className="relative bg-white border border-charcoal/5 p-4 hover:border-gold/20 transition-all"
           >
-            <div className="flex gap-4">
-              <img
-                src={product.image_url}
-                alt={product.name}
-                className="w-24 h-24 object-cover border border-charcoal/5"
-              />
-              <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-light text-charcoal mb-1 truncate">{product.name}</h3>
-                <p className="text-xs text-charcoal/60 mb-2">{product.category}</p>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-light text-gold">${product.price}</span>
-                  <span className="text-[10px] text-charcoal/50 uppercase tracking-wider bg-green-50 px-2 py-0.5">
-                    Stock: {product.stock_count}
-                  </span>
-                </div>
-                {product.stone_type && (
-                  <p className="text-[10px] text-charcoal/40 mt-2">{product.stone_type}</p>
-                )}
-              </div>
-            </div>
+            {/* Delete Button - Top Right */}
+            <button
+              onClick={() => handleDelete(product.id)}
+              className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center 
+                        rounded-full border border-gold text-gold hover:bg-gold 
+                   hover:text-white transition"
+      >
+        <Trash2 className="w-3.5 h-3.5" />
+      </button>
+
+      <div className="flex gap-4">
+        <img
+          src={product.image_url}
+          alt={product.name}
+          className="w-24 h-24 object-cover border border-charcoal/5"
+        />
+
+        <div className="flex-1 min-w-0">
+          <h3 className="text-sm font-light text-charcoal mb-1 truncate">
+            {product.name}
+          </h3>
+
+          <p className="text-xs text-charcoal/60 mb-2">
+            {product.category}
+          </p>
+
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-light text-gold">
+              ${product.price}
+            </span>
+
+            <span className="text-[10px] text-charcoal/50 uppercase tracking-wider bg-green-50 px-2 py-0.5">
+              Stock: {product.stock_count}
+            </span>
           </div>
-        ))}
+
+          {product.stone_type && (
+            <p className="text-[10px] text-charcoal/40 mt-2">
+              {product.stone_type}
+            </p>
+          )}
+        </div>
       </div>
+    </div>
+  ))}
+</div>
+
+      
     </div>
   );
 }
@@ -615,6 +673,246 @@ function SettingsView() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function AddProduct({ onAdded }: { onAdded: () => void }) {
+  const [form, setForm] = useState({
+    name: "",
+    category: "",
+    description: "",
+    price: "",
+    stockCount: "",
+    inStock: "true",
+    stoneType: "",
+    style: "",
+    occasion: "",
+    image: null as File | null,
+  });
+
+  const categories = [
+    "Rings", "Necklaces", "Bracelets", "Earrings", "Bangles", "Anklets"
+  ];
+
+  const stoneTypes = [
+    "Diamond", "Gold Polish", "American Diamond", "Kundan", "Pearl", "None"
+  ];
+
+  const styles = [
+    "Traditional", "Modern", "Classic", "Western", "Designer"
+  ];
+
+  const occasions = [
+    "Daily Wear", "Wedding", "Party", "Festive", "Office Wear"
+  ];
+
+  const handleChange = (e: any) => {
+    const { name, value, files } = e.target;
+
+    if (name === "image") {
+      setForm({ ...form, image: files[0] });
+    } else {
+      setForm({ ...form, [name]: value });
+    }
+  };
+
+  const handleSubmit = (e: any) => {
+    e.preventDefault();
+
+    // (Optional) validate fields here
+    console.log("Form data: ", form);
+
+    // Demo submit behavior
+    // alert("Product Submitted (demo). Connect to backend next.");
+
+    // call parent callback to switch tab
+    onAdded();
+
+    // optional: reset form if you want
+    setForm({
+      name: "",
+      category: "",
+      description: "",
+      price: "",
+      stockCount: "",
+      inStock: "true",
+      stoneType: "",
+      style: "",
+      occasion: "",
+      image: null,
+    });
+  };
+
+  return (
+    <div className="max-w-3xl space-y-8">
+      <h1 className="text-2xl font-serif text-charcoal tracking-wide">Add Product</h1>
+
+      <form onSubmit={handleSubmit} className="space-y-6 bg-white p-6 border border-charcoal/10 shadow-sm">
+
+        {/* Name */}
+        <div>
+          <label className="text-sm font-medium">Product Name</label>
+          <input
+            type="text"
+            name="name"
+            value={form.name}
+            onChange={handleChange}
+            className="w-full mt-1 p-2 border border-charcoal/20 rounded-md focus:outline-none focus:border-gold focus:ring-0"
+          />
+        </div>
+
+        {/* Category */}
+        <div>
+          <label className="text-sm font-medium">Category</label>
+          <select
+            name="category"
+            value={form.category}
+            onChange={handleChange}
+            className="w-full mt-1 p-2 border rounded-md border-charcoal/20 focus:outline-none focus:border-gold focus:ring-0"
+          >
+            <option value="">Select Category</option>
+            {categories.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Description */}
+        <div>
+          <label className="text-sm font-medium">Description</label>
+          <textarea
+            name="description"
+            value={form.description}
+            onChange={handleChange}
+            className="w-full mt-1 p-2 border rounded-md border-charcoal/20 focus:outline-none focus:border-gold focus:ring-0"
+            rows={3}
+          ></textarea>
+        </div>
+
+        {/* Price */}
+        <div>
+          <label className="text-sm font-medium">Price ($)</label>
+          <input
+            type="number"
+            name="price"
+            value={form.price}
+            min={'0'}
+            onKeyDown={(e) => ["e", "E", "+", "-"].includes(e.key) && e.preventDefault()}
+            onChange={handleChange}
+            className="w-full mt-1 p-2 border rounded-md
+                       border-charcoal/20 focus:outline-none
+                       focus:border-gold focus:ring-0
+                        [appearance:textfield]
+                        [&::-webkit-outer-spin-button]:appearance-none
+                        [&::-webkit-inner-spin-button]:appearance-none
+                       "
+          />
+        </div>
+
+        {/* Stock Count */}
+        <div>
+          <label className="text-sm font-medium">Stock Count</label>
+          <input
+            type="number"
+            name="stockCount"
+            value={form.stockCount}
+            onChange={handleChange}
+            min={'0'}
+            onKeyDown={(e) => ["e", "E", "+", "-"].includes(e.key) && e.preventDefault()}
+            className="w-full mt-1 p-2 border rounded-md
+                       border-charcoal/20 focus:outline-none
+                       focus:border-gold focus:ring-0
+                        [appearance:textfield]
+                        [&::-webkit-outer-spin-button]:appearance-none
+                        [&::-webkit-inner-spin-button]:appearance-none
+                       "
+          />
+        </div>
+
+        {/* In Stock */}
+        <div>
+          <label className="text-sm font-medium">In Stock</label>
+          <select
+            name="inStock"
+            value={form.inStock}
+            onChange={handleChange}
+            className="w-full mt-1 p-2 border rounded-md border-charcoal/20 focus:outline-none focus:border-gold focus:ring-0"
+          >
+            <option value="true">True</option>
+            <option value="false">False</option>
+          </select>
+        </div>
+
+        {/* Stone Type */}
+        <div>
+          <label className="text-sm font-medium">Stone Type</label>
+          <select
+            name="stoneType"
+            value={form.stoneType}
+            onChange={handleChange}
+            className="w-full mt-1 p-2 border rounded-md border-charcoal/20 focus:outline-none focus:border-gold focus:ring-0"
+          >
+            <option value="">Select Stone Type</option>
+            {stoneTypes.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Style */}
+        <div>
+          <label className="text-sm font-medium">Style</label>
+          <select
+            name="style"
+            value={form.style}
+            onChange={handleChange}
+            className="w-full mt-1 p-2 border rounded-md border-charcoal/20 focus:outline-none focus:border-gold focus:ring-0"
+          >
+            <option value="">Select Style</option>
+            {styles.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Occasion */}
+        <div>
+          <label className="text-sm font-medium">Occasion</label>
+          <select
+            name="occasion"
+            value={form.occasion}
+            onChange={handleChange}
+            className="w-full mt-1 p-2 border rounded-md border-charcoal/20 focus:outline-none focus:border-gold focus:ring-0"
+          >
+            <option value="">Select Occasion</option>
+            {occasions.map((o) => (
+              <option key={o} value={o}>{o}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Image Upload */}
+        <div>
+          <label className="text-sm font-medium">Product Image</label>
+          <input
+            type="file"
+            name="image"
+            accept="image/*"
+            onChange={handleChange}
+            className="w-full mt-1 p-2 border rounded-md border-charcoal/20 focus:outline-none focus:border-gold focus:ring-0"
+          />
+        </div>
+
+        {/* Submit */}
+        <button
+          type="submit"
+          className="w-full bg-gold text-white py-2 rounded-md text-sm tracking-wider"
+        >
+          Add Product
+        </button>
+
+      </form>
     </div>
   );
 }

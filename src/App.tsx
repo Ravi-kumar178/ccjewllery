@@ -8,6 +8,10 @@ import AdminDashboard from './components/AdminDashboard';
 import AboutPage from './components/AboutPage';
 import ParticleBackground from './components/ParticleBackground';
 import CursorTrail from './components/CursorTrail';
+import ContactPage from './components/ContactPage'
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import AdminLogin from "./components/AdminLogin";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 function AppContent() {
   const [currentPage, setCurrentPage] = useState('home');
@@ -22,8 +26,10 @@ function AppContent() {
         return <StorePage />;
       case 'cart':
         return <CartPage onNavigate={setCurrentPage} />;
-      case 'admin':
-        return <AdminDashboard />;
+      // case 'admin':
+      //   return <AdminDashboard />;
+      case 'contact':
+        return <ContactPage/>
       default:
         return <LandingPage onNavigate={setCurrentPage} />;
     }
@@ -31,8 +37,8 @@ function AppContent() {
 
   return (
     <div className="min-h-screen relative">
-      <ParticleBackground />
-      <CursorTrail />
+      {/* <ParticleBackground />
+      <CursorTrail /> */}
       <Navbar onNavigate={setCurrentPage} currentPage={currentPage} />
       <div className="relative z-10">
         {renderPage()}
@@ -44,7 +50,24 @@ function AppContent() {
 function App() {
   return (
     <CartProvider>
-      <AppContent />
+      <Router>
+        <ParticleBackground />
+        <CursorTrail />
+        <Routes>
+          <Route path="/admin" element={<AdminLogin />} />
+          {/* Protected Admin Dashboard */}
+          <Route
+            path="/admin/dashboard"
+            element={
+              <ProtectedRoute>
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route path='/*' element={<AppContent/>}/>
+        </Routes>
+      </Router>
+      {/* <AppContent /> */}
     </CartProvider>
   );
 }

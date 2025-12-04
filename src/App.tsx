@@ -12,6 +12,7 @@ import ContactPage from './components/ContactPage'
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import AdminLogin from "./components/AdminLogin";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { Toaster } from 'react-hot-toast';
 
 function AppContent() {
   const [currentPage, setCurrentPage] = useState('home');
@@ -50,6 +51,7 @@ function AppContent() {
 function App() {
   return (
     <CartProvider>
+      <Toaster position='top-right'/>
       <Router>
         <ParticleBackground />
         <CursorTrail />

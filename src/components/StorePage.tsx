@@ -1,11 +1,31 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Search, X, ShoppingCart, Heart, Share2 } from 'lucide-react';
 import ProductCard from './ProductCard';
 import { useCart } from '../contexts/CartContext';
 import Footer from './Footer';
-import { allProducts, categories, Product } from '../data/products';
+import { /* allProducts, */ categories, Product } from '../data/products';
+import { getMethod } from '../api/api';
 
 export default function StorePage() {
+
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+
+  
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const data = await getMethod({ url: "/product/list" });
+        setAllProducts(data?.product);  
+
+      } catch (error) {
+        console.error("Failed to fetch products", error);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [filters, setFilters] = useState({
     search: '',
@@ -14,7 +34,7 @@ export default function StorePage() {
   });
 
   const filteredProducts = allProducts.filter(product => {
-    if (filters.search && !product.name.toLowerCase().includes(filters.search.toLowerCase())) {
+    if (filters?.search && !product?.name.toLowerCase().includes(filters.search.toLowerCase())) {
       return false;
     }
 
@@ -23,11 +43,11 @@ export default function StorePage() {
     }
 
     if (filters.priceRange !== 'all') {
-      if (filters.priceRange === 'under100' && product.price >= 100) return false;
-      if (filters.priceRange === '100-500' && (product.price < 100 || product.price >= 500)) return false;
-      if (filters.priceRange === '500-1000' && (product.price < 500 || product.price >= 1000)) return false;
-      if (filters.priceRange === '1000-2000' && (product.price < 1000 || product.price >= 2000)) return false;
-      if (filters.priceRange === 'over2000' && product.price < 2000) return false;
+      if (filters.priceRange === 'under100' && product?.price >= 100) return false;
+      if (filters.priceRange === '100-500' && (product?.price < 100 || product?.price >= 500)) return false;
+      if (filters.priceRange === '500-1000' && (product?.price < 500 || product?.price >= 1000)) return false;
+      if (filters.priceRange === '1000-2000' && (product?.price < 1000 || product?.price >= 2000)) return false;
+      if (filters.priceRange === 'over2000' && product?.price < 2000) return false;
     }
 
     return true;

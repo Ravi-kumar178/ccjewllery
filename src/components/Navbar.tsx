@@ -1,6 +1,7 @@
 import { ShoppingCart, Heart, Menu, X } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useCart } from '../contexts/CartContext';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 interface NavbarProps {
   onNavigate: (page: string) => void;
@@ -11,11 +12,27 @@ export default function Navbar({ onNavigate, currentPage }: NavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { itemCount } = useCart();
 
+  const[isAdmin,setIsAdmin] = useState(false);
+  
+  const location = useLocation();
+  
+  useEffect(()=>{
+    if(location.pathname == '/admin/dashboard'){
+      setIsAdmin(true);
+    }
+    else{
+      setIsAdmin(false);
+    }
+  },[location?.pathname]);
+
+  const navigate = useNavigate();
+
+
   const navLinks = [
     { name: 'Home', href: 'home' },
     { name: 'Collection', href: 'store' },
     { name: 'About', href: 'about' },
-    { name: 'Admin', href: 'admin' },
+    // { name: 'Admin', href: 'admin' },
     { name: 'Contact', href: 'contact'}
   ];
 
@@ -35,7 +52,7 @@ export default function Navbar({ onNavigate, currentPage }: NavbarProps) {
             {navLinks.map(link => (
               <button
                 key={link.href}
-                onClick={() => onNavigate(link.href)}
+                onClick={() => {navigate("/");onNavigate(link.href)}}
                 className={`text-xs font-normal tracking-widest uppercase transition-colors hover:text-gold ${
                   currentPage === link.href ? 'text-gold' : 'text-charcoal'
                 }`}

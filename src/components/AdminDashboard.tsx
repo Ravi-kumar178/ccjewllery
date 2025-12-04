@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   LayoutDashboard,
   Package,
@@ -13,8 +13,11 @@ import {
   CircleFadingPlus,
   Trash2
 } from 'lucide-react';
-import { allProducts } from '../data/products';
+import { allProducts, Product } from '../data/products';
 import Navbar from './Navbar';
+import axios from 'axios';
+import toast from 'react-hot-toast';
+import { getMethod, postMethod } from '../api/api';
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -26,7 +29,7 @@ export default function AdminDashboard() {
     { id: 'orders', name: 'Orders', icon: ShoppingBag },
     { id: 'analytics', name: 'Analytics', icon: BarChart3 },
     { id: 'users', name: 'Users', icon: Users },
-    { id: 'settings', name: 'Settings', icon: Settings },
+    // { id: 'settings', name: 'Settings', icon: Settings },
   ];
 
   return (
@@ -205,16 +208,36 @@ function DashboardView() {
 }
 
 function ProductsView({ onAddProduct }: { onAddProduct: () => void }) {
-  const handleDelete = async (id:String) => {
-  if (!confirm("Are you sure you want to delete this product?")) return;
+    const handleDelete = async (id:String) => {
+      if (!confirm("Are you sure you want to delete this product?")) return;
 
-  try {
-    // await axios.delete(`/api/products/${id}`);
-    // setAllProducts(allProducts.filter((p) => p.id !== id));
-  } catch (err) {
-    console.error(err);
-  }
-};
+      try {
+        const data = await postMethod({ url: "/product/remove",body:{productId:id} });
+        // remove deleted product from UI
+        setAllProducts((prev) => prev.filter((p) => p.id !== id));
+        toast.success("Product deleted successfully!");
+      } catch (err) {
+        console.error(err);
+        toast.error("Failed to delete product");
+      }
+    };
+
+    const [allProducts, setAllProducts] = useState<Product[]>([]);
+    
+  
+    useEffect(() => {
+      const fetchProducts = async () => {
+        try {
+          const data = await getMethod({ url: "/product/list" });
+          setAllProducts(data?.product);  
+  
+        } catch (error) {
+          console.error("Failed to fetch products", error);
+        }
+      };
+  
+      fetchProducts();
+    }, []);
 
   return (
     <div className="space-y-6 animate-fade-in-up">
@@ -237,14 +260,15 @@ function ProductsView({ onAddProduct }: { onAddProduct: () => void }) {
       </div> */}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {allProducts.length == 0 && <div>No product present at a moment!</div>}
         {allProducts.map((product) => (
           <div
-            key={product.id}
+            key={product?.id}
             className="relative bg-white border border-charcoal/5 p-4 hover:border-gold/20 transition-all"
           >
             {/* Delete Button - Top Right */}
             <button
-              onClick={() => handleDelete(product.id)}
+              onClick={() => handleDelete(product?.id)}
               className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center 
                         rounded-full border border-gold text-gold hover:bg-gold 
                    hover:text-white transition"
@@ -295,7 +319,7 @@ function ProductsView({ onAddProduct }: { onAddProduct: () => void }) {
 }
 
 function OrdersView() {
-  const orders = [
+  const [orders, setOrders] = useState([
     { id: '#3428', customer: 'Sarah Johnson', items: 2, total: 2870, status: 'Processing', date: '2025-11-13' },
     { id: '#3427', customer: 'Michael Chen', items: 1, total: 89, status: 'Shipped', date: '2025-11-13' },
     { id: '#3426', customer: 'Emma Williams', items: 3, total: 267, status: 'Delivered', date: '2025-11-12' },
@@ -304,7 +328,7 @@ function OrdersView() {
     { id: '#3423', customer: 'William Miller', items: 1, total: 95, status: 'Delivered', date: '2025-11-11' },
     { id: '#3422', customer: 'Sophia Garcia', items: 4, total: 352, status: 'Delivered', date: '2025-11-10' },
     { id: '#3421', customer: 'Benjamin Wilson', items: 1, total: 2650, status: 'Processing', date: '2025-11-10' },
-  ];
+  ]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -313,6 +337,16 @@ function OrdersView() {
       case 'Delivered': return 'bg-green-50 text-green-700';
       default: return 'bg-gray-50 text-gray-700';
     }
+  };
+
+  const handleStatusChange = (id: string, newStatus: string) => {
+    const updated = orders.map(order =>
+      order.id === id ? { ...order, status: newStatus } : order
+    );
+    setOrders(updated);
+
+    // OPTIONAL: Hit API to update in backend
+    // await axios.put(`/orders/${id}`, { status: newStatus });
   };
 
   return (
@@ -343,9 +377,18 @@ function OrdersView() {
                   <td className="px-4 py-3 text-xs text-charcoal/60">{order.items}</td>
                   <td className="px-4 py-3 text-xs font-light text-gold">${order.total}</td>
                   <td className="px-4 py-3">
-                    <span className={`px-2 py-0.5 text-[10px] font-normal uppercase tracking-wider ${getStatusColor(order.status)}`}>
-                      {order.status}
-                    </span>
+                    {/* ⭐ REPLACED STATIC STATUS WITH SELECT */}
+                  <td className="px-4 py-3">
+                    <select
+                      value={order.status}
+                      onChange={(e) => handleStatusChange(order.id, e.target.value)}
+                      className={`px-2 py-1 text-[10px] uppercase border rounded ${getStatusColor(order.status)} focus:outline-none`}
+                    >
+                      <option value="Processing">Processing</option>
+                      <option value="Shipped">Shipped</option>
+                      <option value="Delivered">Delivered</option>
+                    </select>
+                  </td>
                   </td>
                   <td className="px-4 py-3 text-xs text-charcoal/50">{order.date}</td>
                 </tr>
@@ -717,32 +760,58 @@ function AddProduct({ onAdded }: { onAdded: () => void }) {
     }
   };
 
-  const handleSubmit = (e: any) => {
+  const handleSubmit = async (e: any) => {
     e.preventDefault();
+    console.log(form);
+    try {
+      const fd = new FormData();
+      fd.append("name", form.name);
+      fd.append("category", form.category);
+      fd.append("description", form.description);
+      fd.append("price", form.price);
+      fd.append("stock_count", form.stockCount);
+      fd.append("in_stock", form.inStock);
+      fd.append("stone_type", form.stoneType);
+      fd.append("style", form.style);
+      fd.append("occasion", form.occasion);
 
-    // (Optional) validate fields here
-    console.log("Form data: ", form);
+      if (form.image) {
+        fd.append("image", form.image);
+      }
 
-    // Demo submit behavior
-    // alert("Product Submitted (demo). Connect to backend next.");
+      // hit your backend API
+      const res = await axios.post(
+        "https://ccjewllery-backend.onrender.com/api/product/add",
+        fd,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
 
-    // call parent callback to switch tab
-    onAdded();
+      toast.success(res.data?.message || "Product added successfully!");
 
-    // optional: reset form if you want
-    setForm({
-      name: "",
-      category: "",
-      description: "",
-      price: "",
-      stockCount: "",
-      inStock: "true",
-      stoneType: "",
-      style: "",
-      occasion: "",
-      image: null,
-    });
+      // switch to list tab
+      onAdded();
+
+      // reset form
+      setForm({
+        name: "",
+        category: "",
+        description: "",
+        price: "",
+        stockCount: "",
+        inStock: "true",
+        stoneType: "",
+        style: "",
+        occasion: "",
+        image: null,
+      });
+
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Failed to add product");
+    }
   };
+
 
   return (
     <div className="max-w-3xl space-y-8">

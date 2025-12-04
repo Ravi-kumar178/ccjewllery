@@ -2,7 +2,9 @@ import { ArrowRight, Star, Sparkles } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import ProductCard from './ProductCard';
 import Footer from './Footer';
-import { allProducts } from '../data/products';
+// import { allProducts } from '../data/products';
+import { getMethod } from '../api/api';
+import { Product } from '../data/products';
 
 interface LandingPageProps {
   onNavigate: (page: string) => void;
@@ -10,7 +12,28 @@ interface LandingPageProps {
 
 export default function LandingPage({ onNavigate }: LandingPageProps) {
   const [scrollY, setScrollY] = useState(0);
-  const featuredProducts = allProducts.slice(0, 12);
+
+  const [allProducts, setAllProducts] = useState([]);
+  
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const data = await getMethod({ url: "/product/list" });
+        setAllProducts(data?.product);  
+
+      } catch (error) {
+        console.error("Failed to fetch products", error);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+
+
+
+  const featuredProducts = allProducts?.slice(0, 12);
+  
 
   useEffect(() => {
     const handleScroll = () => setScrollY(window.scrollY);
@@ -107,26 +130,58 @@ function ShowcaseCarousel({ products, onNavigate }: { products: Product[]; onNav
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {products.slice(0, 8).map((product, index) => (
-            <div
-              key={product.id}
-              className="animate-fade-in-up"
-              style={{ animationDelay: `${index * 0.05}s` }}
-            >
-              <ProductCard product={product} onViewDetails={() => onNavigate('store')} />
-            </div>
-          ))}
+        <div className="flex justify-center align-center">
+          {
+            products.length == 0? (
+              <div>No product present at a moment!</div>
+            ):(
+              <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6'>
+                {
+                  products.length < 8 ? 
+                  (
+                    <div>
+                      {products.slice(0, products.length).map((product, index) => (
+                          <div
+                            key={product.id}
+                            className="animate-fade-in-up"
+                            style={{ animationDelay: `${index * 0.05}s` }}
+                          >
+                          <ProductCard product={product} onViewDetails={() => onNavigate('store')} />
+                        </div>
+                      ))}
+                    </div>
+                  ) : 
+                  (
+                    <div>
+                      {products.slice(0, 8).map((product, index) => (
+                        <div
+                          key={product.id}
+                          className="animate-fade-in-up"
+                          style={{ animationDelay: `${index * 0.05}s` }}
+                        >
+                          <ProductCard product={product} onViewDetails={() => onNavigate('store')} />
+                        </div>
+                      ))}
+                    </div>
+                  ) 
+                }
+              </div>
+            )
+          }
         </div>
 
-        <div className="text-center mt-12">
-          <button
-            onClick={() => onNavigate('store')}
-            className="px-8 py-2.5 border border-charcoal/20 text-charcoal rounded-sm hover:border-gold hover:text-gold transition-all text-xs font-normal tracking-widest uppercase"
-          >
-            View All
-          </button>
-        </div>
+        {
+          products.length > 8 && (
+            <div className="text-center mt-12">
+              <button
+                onClick={() => onNavigate('store')}
+                className="px-8 py-2.5 border border-charcoal/20 text-charcoal rounded-sm hover:border-gold hover:text-gold transition-all text-xs font-normal tracking-widest uppercase"
+              >
+                View All
+              </button>
+            </div>
+          )
+        }
       </div>
     </section>
   );

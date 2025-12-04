@@ -1,5 +1,8 @@
 import { Award, Heart, Sparkles, Users, Globe, Gem, Phone, Mail, MapPin  } from 'lucide-react';
 import Footer from './Footer';
+import { useState } from 'react';
+import { postMethod } from '../api/api';
+import toast from 'react-hot-toast';
 
 export default function ContactPage() {
   return (
@@ -255,6 +258,39 @@ function SustainabilitySection() {
 }
 
 function ContactFormSection() {
+  const [formData, setFormData] = useState({
+  firstName: "",
+  lastName: "",
+  email: "",
+  phone: "",
+  message: "",
+  });
+
+  
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  console.log(formData);
+  try {
+    const data = await postMethod({
+      url: "/contact",
+      body: formData
+    });
+
+    toast.success(data.msg);
+
+    // Clear form
+    setFormData({
+      firstName: "",
+      lastName: "",
+      email: "",
+      phone: "",
+      message: "",
+    });
+  } catch (error) {
+    toast.error("Failed to send message");
+  }
+};
+
   return (
     <section className="py-20 px-6 bg-white">
       <div className="max-w-4xl mx-auto">
@@ -267,34 +303,61 @@ function ContactFormSection() {
           </p>
         </div>
 
-        <form className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <input
             type="text"
             placeholder="First Name"
+            name="firstName"
+            value={formData.firstName}
+            onChange={(e) =>
+              setFormData({ ...formData, firstName: e.target.value })
+            }
             className="p-3 border border-charcoal/20 bg-pearl/20 rounded-xl outline-none focus:ring-1 focus:ring-gold text-sm"
           />
           <input
             type="text"
             placeholder="Last Name"
+            name="lastName"
+            value={formData.lastName}
+            onChange={(e) =>
+              setFormData({ ...formData, lastName: e.target.value })
+            }
             className="p-3 border border-charcoal/20 bg-pearl/20 rounded-xl outline-none focus:ring-1 focus:ring-gold text-sm"
           />
           <input
             type="email"
             placeholder="Email Address"
+            name="email"
+            value={formData.email}
+            onChange={(e) =>
+              setFormData({ ...formData, email: e.target.value })
+            }
             className="p-3 border border-charcoal/20 bg-pearl/20 rounded-xl outline-none focus:ring-1 focus:ring-gold text-sm col-span-1 md:col-span-2"
           />
           <input
-            type="text"
+            type="number"
             placeholder="Phone Number"
+            name="phone"
+            value={formData.phone}
+            onChange={(e) =>
+              setFormData({ ...formData, phone: e.target.value })
+            }
             className="p-3 border border-charcoal/20 bg-pearl/20 rounded-xl outline-none focus:ring-1 focus:ring-gold text-sm col-span-1 md:col-span-2"
           />
           <textarea
-            rows="5"
+            rows={5}
             placeholder="Your Message"
+            name="message"
+            value={formData.message}
+            onChange={(e) =>
+              setFormData({ ...formData, message: e.target.value })
+            }
             className="p-3 border border-charcoal/20 bg-pearl/20 rounded-xl outline-none focus:ring-1 focus:ring-gold text-sm md:col-span-2"
           ></textarea>
 
-          <button className="py-3 bg-gold text-white rounded-xl text-sm md:col-span-2 hover:bg-gold/90 transition">
+          <button
+          type='submit'
+          className="py-3 bg-gold text-white rounded-xl text-sm md:col-span-2 hover:bg-gold/90 transition">
             Send Message
           </button>
         </form>

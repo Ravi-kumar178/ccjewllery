@@ -425,7 +425,7 @@ function OrdersView() {
               </tr>
             </thead>
             <tbody className="divide-y divide-charcoal/5">
-              {[...orders].reverse().map((order) => (
+              {[...orders].map((order) => (
                 <tr key={order?._id} className="hover:bg-pearl/10 transition-colors">
                   <td className="px-4 py-3 text-xs font-light text-charcoal">{order._id}</td>
                   <td className="px-4 py-3 text-xs text-charcoal/80">{order?.firstName + " "+ order?.lastName}</td>
@@ -867,7 +867,7 @@ function AddProduct({ onAdded }: { onAdded: () => void }) {
       }
 
       // Use the same URL pattern as api.tsx
-      const URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:4000/api";
+      const URL = "https://ccjewllery-backend.onrender.com/api" ;
 
       const res = await axios.post(
         `${URL}/product/add`,

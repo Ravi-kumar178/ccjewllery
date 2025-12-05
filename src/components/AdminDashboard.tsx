@@ -12,7 +12,7 @@ import {
   CircleFadingPlus,
   Trash2
 } from 'lucide-react';
-import { /* allProducts, */ Product, updatedProduct } from '../data/products';
+import { /* allProducts, */ Order, Product, updatedProduct } from '../data/products';
 import Navbar from './Navbar';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -93,11 +93,27 @@ function DashboardView() {
     fetchProducts();
   }, []);
 
+  const [orders, setOrders] = useState<Order[]>([]);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const data = await postMethod({ url: "/order/list",body:"" });
+        setOrders(data?.orders);  
+
+      } catch (error) {
+        console.error("Failed to fetch products", error);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+
 
   const stats = {
     totalRevenue: 147250,
-    totalOrders: 342,
-    totalProducts: allProducts.length,
+    totalOrders: orders?.length,
+    totalProducts: allProducts?.length,
     activeUsers: 1248,
   };
 
@@ -281,7 +297,7 @@ function ProductsView({ onAddProduct }: { onAddProduct: () => void }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {allProducts.length == 0 && <div>No product present at a moment!</div>}
-        {allProducts.map((product) => (
+        {[...allProducts].reverse().map((product) => (
           <div
             key={product?._id}
             className="relative bg-white border border-charcoal/5 p-4 hover:border-gold/20 transition-all"
@@ -339,29 +355,48 @@ function ProductsView({ onAddProduct }: { onAddProduct: () => void }) {
 }
 
 function OrdersView() {
-  const [orders, setOrders] = useState([
-    { id: '#3428', customer: 'Sarah Johnson', items: 2, total: 2870, status: 'Processing', date: '2025-11-13' },
-    { id: '#3427', customer: 'Michael Chen', items: 1, total: 89, status: 'Shipped', date: '2025-11-13' },
-    { id: '#3426', customer: 'Emma Williams', items: 3, total: 267, status: 'Delivered', date: '2025-11-12' },
-    { id: '#3425', customer: 'James Brown', items: 1, total: 2450, status: 'Processing', date: '2025-11-12' },
-    { id: '#3424', customer: 'Olivia Davis', items: 2, total: 178, status: 'Shipped', date: '2025-11-11' },
-    { id: '#3423', customer: 'William Miller', items: 1, total: 95, status: 'Delivered', date: '2025-11-11' },
-    { id: '#3422', customer: 'Sophia Garcia', items: 4, total: 352, status: 'Delivered', date: '2025-11-10' },
-    { id: '#3421', customer: 'Benjamin Wilson', items: 1, total: 2650, status: 'Processing', date: '2025-11-10' },
+  const [orders, setOrders] = useState<Order[]>([
+    // { id: '#3428', customer: 'Sarah Johnson', items: 2, total: 2870, status: 'Processing', date: '2025-11-13' },
+    // { id: '#3427', customer: 'Michael Chen', items: 1, total: 89, status: 'Shipped', date: '2025-11-13' },
+    // { id: '#3426', customer: 'Emma Williams', items: 3, total: 267, status: 'Delivered', date: '2025-11-12' },
+    // { id: '#3425', customer: 'James Brown', items: 1, total: 2450, status: 'Processing', date: '2025-11-12' },
+    // { id: '#3424', customer: 'Olivia Davis', items: 2, total: 178, status: 'Shipped', date: '2025-11-11' },
+    // { id: '#3423', customer: 'William Miller', items: 1, total: 95, status: 'Delivered', date: '2025-11-11' },
+    // { id: '#3422', customer: 'Sophia Garcia', items: 4, total: 352, status: 'Delivered', date: '2025-11-10' },
+    // { id: '#3421', customer: 'Benjamin Wilson', items: 1, total: 2650, status: 'Processing', date: '2025-11-10' },
   ]);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Processing': return 'bg-yellow-50 text-yellow-700';
-      case 'Shipped': return 'bg-blue-50 text-blue-700';
-      case 'Delivered': return 'bg-green-50 text-green-700';
-      default: return 'bg-gray-50 text-gray-700';
-    }
-  };
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const data = await postMethod({ url: "/order/list",body:"" });
+        setOrders(data?.orders);  
 
-  const handleStatusChange = (id: string, newStatus: string) => {
+      } catch (error) {
+        console.error("Failed to fetch products", error);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+
+ 
+
+
+    const getStatusColor = (status: Order["status"]) => {
+      switch (status) {
+        case 'Order Placed': return 'bg-gray-100 text-gray-700';
+        case 'Processing':    return 'bg-yellow-50 text-yellow-700';
+        case 'Shipped':       return 'bg-blue-50 text-blue-700';
+        case 'Delivered':     return 'bg-green-50 text-green-700';
+        default:              return 'bg-gray-50 text-gray-700';
+      }
+    };
+
+
+  const handleStatusChange = (id: string, newStatus: Order["status"]) => {
     const updated = orders.map(order =>
-      order.id === id ? { ...order, status: newStatus } : order
+      order._id === id ? { ...order, status: newStatus } : order
     );
     setOrders(updated);
 
@@ -390,27 +425,30 @@ function OrdersView() {
               </tr>
             </thead>
             <tbody className="divide-y divide-charcoal/5">
-              {orders.map((order) => (
-                <tr key={order.id} className="hover:bg-pearl/10 transition-colors">
-                  <td className="px-4 py-3 text-xs font-light text-charcoal">{order.id}</td>
-                  <td className="px-4 py-3 text-xs text-charcoal/80">{order.customer}</td>
-                  <td className="px-4 py-3 text-xs text-charcoal/60">{order.items}</td>
-                  <td className="px-4 py-3 text-xs font-light text-gold">${order.total}</td>
+              {[...orders].reverse().map((order) => (
+                <tr key={order?._id} className="hover:bg-pearl/10 transition-colors">
+                  <td className="px-4 py-3 text-xs font-light text-charcoal">{order._id}</td>
+                  <td className="px-4 py-3 text-xs text-charcoal/80">{order?.firstName + " "+ order?.lastName}</td>
+                  <td className="px-4 py-3 text-xs text-charcoal/60"> {order.items?.reduce((sum, item) => sum + item.quantity, 0)}</td>
+                  <td className="px-4 py-3 text-xs font-light text-gold">${order?.total || 0}</td>
                   <td className="px-4 py-3">
                     {/* ⭐ REPLACED STATIC STATUS WITH SELECT */}
                   <td className="px-4 py-3">
                     <select
-                      value={order.status}
-                      onChange={(e) => handleStatusChange(order.id, e.target.value)}
+                     value={order.status}
+                     onChange={(e) =>
+                        handleStatusChange(order._id, e.target.value as Order["status"])
+                      }
                       className={`px-2 py-1 text-[10px] uppercase border rounded ${getStatusColor(order.status)} focus:outline-none`}
                     >
+                      <option value="Order Placed">Order Placed</option>
                       <option value="Processing">Processing</option>
                       <option value="Shipped">Shipped</option>
                       <option value="Delivered">Delivered</option>
                     </select>
                   </td>
                   </td>
-                  <td className="px-4 py-3 text-xs text-charcoal/50">{order.date}</td>
+                  <td className="px-4 py-3 text-xs text-charcoal/50">{new Date(order?.date).toLocaleDateString()}</td>
                 </tr>
               ))}
             </tbody>

@@ -1,7 +1,11 @@
 import { Award, Heart, Sparkles, Users, Globe, Gem } from 'lucide-react';
 import Footer from './Footer';
 
-export default function AboutPage() {
+interface AboutPageProps {
+  onNavigate: (page: string) => void;
+}
+
+export default function AboutPage({ onNavigate }: AboutPageProps) {
   return (
     <div className="min-h-screen pt-16">
       <HeroSection />
@@ -10,7 +14,7 @@ export default function AboutPage() {
       <TeamSection />
       <CraftsmanshipSection />
       <SustainabilitySection />
-      <Footer />
+      <Footer onNavigate={onNavigate}/>
     </div>
   );
 }

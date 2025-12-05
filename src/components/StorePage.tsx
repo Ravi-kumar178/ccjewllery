@@ -6,7 +6,11 @@ import Footer from './Footer';
 import { allProducts as localProducts, categories, Product } from '../data/products';
 import { getMethod } from '../api/api';
 
-export default function StorePage() {
+interface StorePageProps {
+  onNavigate: (page: string) => void;
+}
+
+export default function StorePage({ onNavigate }: StorePageProps) {
 
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -166,7 +170,7 @@ export default function StorePage() {
         />
       )}
     </div>
-    <Footer />
+    <Footer onNavigate={onNavigate}/>
     </>
   );
 }

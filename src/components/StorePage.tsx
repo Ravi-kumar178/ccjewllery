@@ -3,23 +3,47 @@ import { Search, X, ShoppingCart, Heart, Share2 } from 'lucide-react';
 import ProductCard from './ProductCard';
 import { useCart } from '../contexts/CartContext';
 import Footer from './Footer';
-import { /* allProducts, */ categories, Product } from '../data/products';
+import { allProducts as localProducts, categories, Product } from '../data/products';
 import { getMethod } from '../api/api';
 
 export default function StorePage() {
 
   const [allProducts, setAllProducts] = useState<Product[]>([]);
-
-  
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchProducts = async () => {
       try {
+        setLoading(true);
         const data = await getMethod({ url: "/product/list" });
-        setAllProducts(data?.product);  
-
+        
+        // Map backend products to frontend Product interface
+        if (data?.success && data?.product) {
+          const mappedProducts = data.product.map((p: any) => ({
+            id: p._id, // Use MongoDB _id as the id
+            name: p.name,
+            description: p.description,
+            price: p.price,
+            category: p.category,
+            image_url: p.image && p.image.length > 0 ? p.image[0] : '',
+            stock_count: 10, // Default if not in backend
+            in_stock: true,
+            subCategory: p.subCategory,
+            sizes: p.sizes,
+            bestseller: p.bestseller,
+          }));
+          setAllProducts(mappedProducts);
+        } else {
+          // Fallback to local products if backend fails
+          console.warn('Backend products not available, using local products');
+          setAllProducts(localProducts);
+        }
       } catch (error) {
-        console.error("Failed to fetch products", error);
+        console.error("Failed to fetch products from backend:", error);
+        // Fallback to local products
+        setAllProducts(localProducts);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -109,7 +133,11 @@ export default function StorePage() {
           Showing {filteredProducts.length} of {allProducts.length} products
         </div>
 
-        {filteredProducts.length === 0 ? (
+        {loading ? (
+          <div className="text-center py-16">
+            <p className="text-sm text-charcoal/60 uppercase tracking-wider">Loading products...</p>
+          </div>
+        ) : filteredProducts.length === 0 ? (
           <div className="text-center py-16">
             <p className="text-sm text-charcoal/60 uppercase tracking-wider">No products found matching your filters.</p>
           </div>

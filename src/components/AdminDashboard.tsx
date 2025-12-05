@@ -5,7 +5,6 @@ import {
   ShoppingBag,
   BarChart3,
   Users,
-  Settings,
   TrendingUp,
   DollarSign,
   ShoppingCart,
@@ -208,11 +207,11 @@ function DashboardView() {
 }
 
 function ProductsView({ onAddProduct }: { onAddProduct: () => void }) {
-    const handleDelete = async (id:String) => {
+    const handleDelete = async (id: string) => {
       if (!confirm("Are you sure you want to delete this product?")) return;
 
       try {
-        const data = await postMethod({ url: "/product/remove",body:{productId:id} });
+        await postMethod({ url: "/product/remove", body: { id } });
         // remove deleted product from UI
         setAllProducts((prev) => prev.filter((p) => p.id !== id));
         toast.success("Product deleted successfully!");
@@ -724,91 +723,131 @@ function AddProduct({ onAdded }: { onAdded: () => void }) {
   const [form, setForm] = useState({
     name: "",
     category: "",
+    subCategory: "",
     description: "",
     price: "",
-    stockCount: "",
-    inStock: "true",
-    stoneType: "",
-    style: "",
-    occasion: "",
-    image: null as File | null,
+    sizes: "",
+    bestseller: "false",
+    image1: null as File | null,
+    image2: null as File | null,
+    image3: null as File | null,
+    image4: null as File | null,
   });
+  
+  const [loading, setLoading] = useState(false);
 
   const categories = [
-    "Rings", "Necklaces", "Bracelets", "Earrings", "Bangles", "Anklets"
+    "Luxury Healing",
+    "Fashion",
+    "Rings", 
+    "Necklaces", 
+    "Bracelets", 
+    "Earrings", 
+    "Bangles", 
+    "Anklets"
   ];
 
-  const stoneTypes = [
-    "Diamond", "Gold Polish", "American Diamond", "Kundan", "Pearl", "None"
-  ];
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setForm({ ...form, [name]: value });
+  };
 
-  const styles = [
-    "Traditional", "Modern", "Classic", "Western", "Designer"
-  ];
-
-  const occasions = [
-    "Daily Wear", "Wedding", "Party", "Festive", "Office Wear"
-  ];
-
-  const handleChange = (e: any) => {
-    const { name, value, files } = e.target;
-
-    if (name === "image") {
-      setForm({ ...form, image: files[0] });
-    } else {
-      setForm({ ...form, [name]: value });
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>, imageNumber: number) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setForm({ ...form, [`image${imageNumber}`]: file } as any);
     }
   };
 
-  const handleSubmit = async (e: any) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log(form);
+    
+    // Validate required fields
+    if (!form.name || !form.description || !form.price || !form.category) {
+      toast.error("Please fill all required fields (Name, Description, Price, Category)");
+      return;
+    }
+
+    // Validate at least one image
+    if (!form.image1) {
+      toast.error("Please upload at least one product image");
+      return;
+    }
+
+    setLoading(true);
     try {
       const fd = new FormData();
+      
+      // Required fields
       fd.append("name", form.name);
       fd.append("category", form.category);
       fd.append("description", form.description);
       fd.append("price", form.price);
-      fd.append("stock_count", form.stockCount);
-      fd.append("in_stock", form.inStock);
-      fd.append("stone_type", form.stoneType);
-      fd.append("style", form.style);
-      fd.append("occasion", form.occasion);
+      
+      // Optional fields
+      if (form.subCategory) {
+        fd.append("subCategory", form.subCategory);
+      }
+      if (form.sizes) {
+        fd.append("sizes", form.sizes); // Comma-separated string
+      }
+      fd.append("bestseller", form.bestseller);
 
-      if (form.image) {
-        fd.append("image", form.image);
+      // Images (backend expects image1, image2, image3, image4)
+      if (form.image1) {
+        fd.append("image1", form.image1);
+      }
+      if (form.image2) {
+        fd.append("image2", form.image2);
+      }
+      if (form.image3) {
+        fd.append("image3", form.image3);
+      }
+      if (form.image4) {
+        fd.append("image4", form.image4);
       }
 
-      // hit your backend API
+      // Use the same URL pattern as api.tsx
+      const URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:4000/api";
+
       const res = await axios.post(
-        "https://ccjewllery-backend.onrender.com/api/product/add",
+        `${URL}/product/add`,
         fd,
         {
-          headers: { "Content-Type": "multipart/form-data" },
+          headers: { 
+            "Content-Type": "multipart/form-data"
+          },
         }
       );
 
-      toast.success(res.data?.message || "Product added successfully!");
-
-      // switch to list tab
-      onAdded();
-
-      // reset form
-      setForm({
-        name: "",
-        category: "",
-        description: "",
-        price: "",
-        stockCount: "",
-        inStock: "true",
-        stoneType: "",
-        style: "",
-        occasion: "",
-        image: null,
-      });
+      if (res.data?.success) {
+        toast.success(res.data?.message || "Product added successfully!");
+        onAdded();
+        
+        // Reset form
+        setForm({
+          name: "",
+          category: "",
+          subCategory: "",
+          description: "",
+          price: "",
+          sizes: "",
+          bestseller: "false",
+          image1: null,
+          image2: null,
+          image3: null,
+          image4: null,
+        });
+      } else {
+        throw new Error(res.data?.message || "Failed to add product");
+      }
 
     } catch (error: any) {
-      toast.error(error?.response?.data?.message || "Failed to add product");
+      console.error("Add product error:", error);
+      const errorMessage = error?.response?.data?.message || error?.message || "Failed to add product";
+      toast.error(errorMessage);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -819,25 +858,28 @@ function AddProduct({ onAdded }: { onAdded: () => void }) {
 
       <form onSubmit={handleSubmit} className="space-y-6 bg-white p-6 border border-charcoal/10 shadow-sm">
 
-        {/* Name */}
+        {/* Name - Required */}
         <div>
-          <label className="text-sm font-medium">Product Name</label>
+          <label className="text-sm font-medium">Product Name <span className="text-red-500">*</span></label>
           <input
             type="text"
             name="name"
             value={form.name}
             onChange={handleChange}
+            required
             className="w-full mt-1 p-2 border border-charcoal/20 rounded-md focus:outline-none focus:border-gold focus:ring-0"
+            placeholder="e.g., Celestial Amethyst Healing Bracelet"
           />
         </div>
 
-        {/* Category */}
+        {/* Category - Required */}
         <div>
-          <label className="text-sm font-medium">Category</label>
+          <label className="text-sm font-medium">Category <span className="text-red-500">*</span></label>
           <select
             name="category"
             value={form.category}
             onChange={handleChange}
+            required
             className="w-full mt-1 p-2 border rounded-md border-charcoal/20 focus:outline-none focus:border-gold focus:ring-0"
           >
             <option value="">Select Category</option>
@@ -847,138 +889,141 @@ function AddProduct({ onAdded }: { onAdded: () => void }) {
           </select>
         </div>
 
-        {/* Description */}
+        {/* Sub Category - Optional */}
         <div>
-          <label className="text-sm font-medium">Description</label>
+          <label className="text-sm font-medium">Sub Category (Optional)</label>
+          <input
+            type="text"
+            name="subCategory"
+            value={form.subCategory}
+            onChange={handleChange}
+            className="w-full mt-1 p-2 border border-charcoal/20 rounded-md focus:outline-none focus:border-gold focus:ring-0"
+            placeholder="e.g., Healing Crystals, Fashion Accessories"
+          />
+        </div>
+
+        {/* Description - Required */}
+        <div>
+          <label className="text-sm font-medium">Description <span className="text-red-500">*</span></label>
           <textarea
             name="description"
             value={form.description}
             onChange={handleChange}
+            required
             className="w-full mt-1 p-2 border rounded-md border-charcoal/20 focus:outline-none focus:border-gold focus:ring-0"
-            rows={3}
+            rows={4}
+            placeholder="Describe the product features, materials, and benefits..."
           ></textarea>
         </div>
 
-        {/* Price */}
+        {/* Price - Required */}
         <div>
-          <label className="text-sm font-medium">Price ($)</label>
+          <label className="text-sm font-medium">Price ($) <span className="text-red-500">*</span></label>
           <input
             type="number"
             name="price"
             value={form.price}
-            min={'0'}
+            min="0"
+            step="0.01"
+            required
             onKeyDown={(e) => ["e", "E", "+", "-"].includes(e.key) && e.preventDefault()}
             onChange={handleChange}
-            className="w-full mt-1 p-2 border rounded-md
-                       border-charcoal/20 focus:outline-none
-                       focus:border-gold focus:ring-0
-                        [appearance:textfield]
-                        [&::-webkit-outer-spin-button]:appearance-none
-                        [&::-webkit-inner-spin-button]:appearance-none
-                       "
+            className="w-full mt-1 p-2 border rounded-md border-charcoal/20 focus:outline-none focus:border-gold focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            placeholder="0.00"
           />
         </div>
 
-        {/* Stock Count */}
+        {/* Sizes - Optional */}
         <div>
-          <label className="text-sm font-medium">Stock Count</label>
+          <label className="text-sm font-medium">Sizes (Optional)</label>
           <input
-            type="number"
-            name="stockCount"
-            value={form.stockCount}
+            type="text"
+            name="sizes"
+            value={form.sizes}
             onChange={handleChange}
-            min={'0'}
-            onKeyDown={(e) => ["e", "E", "+", "-"].includes(e.key) && e.preventDefault()}
-            className="w-full mt-1 p-2 border rounded-md
-                       border-charcoal/20 focus:outline-none
-                       focus:border-gold focus:ring-0
-                        [appearance:textfield]
-                        [&::-webkit-outer-spin-button]:appearance-none
-                        [&::-webkit-inner-spin-button]:appearance-none
-                       "
+            className="w-full mt-1 p-2 border border-charcoal/20 rounded-md focus:outline-none focus:border-gold focus:ring-0"
+            placeholder="Comma-separated: Small, Medium, Large"
           />
+          <p className="text-xs text-charcoal/50 mt-1">Separate multiple sizes with commas</p>
         </div>
 
-        {/* In Stock */}
+        {/* Bestseller */}
         <div>
-          <label className="text-sm font-medium">In Stock</label>
+          <label className="text-sm font-medium">Bestseller</label>
           <select
-            name="inStock"
-            value={form.inStock}
+            name="bestseller"
+            value={form.bestseller}
             onChange={handleChange}
             className="w-full mt-1 p-2 border rounded-md border-charcoal/20 focus:outline-none focus:border-gold focus:ring-0"
           >
-            <option value="true">True</option>
-            <option value="false">False</option>
+            <option value="false">No</option>
+            <option value="true">Yes</option>
           </select>
         </div>
 
-        {/* Stone Type */}
-        <div>
-          <label className="text-sm font-medium">Stone Type</label>
-          <select
-            name="stoneType"
-            value={form.stoneType}
-            onChange={handleChange}
-            className="w-full mt-1 p-2 border rounded-md border-charcoal/20 focus:outline-none focus:border-gold focus:ring-0"
-          >
-            <option value="">Select Stone Type</option>
-            {stoneTypes.map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
-        </div>
+        {/* Image Uploads */}
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm font-medium">Product Image 1 <span className="text-red-500">*</span></label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => handleImageChange(e, 1)}
+              required
+              className="w-full mt-1 p-2 border rounded-md border-charcoal/20 focus:outline-none focus:border-gold focus:ring-0"
+            />
+            {form.image1 && (
+              <p className="text-xs text-green-600 mt-1">✓ {form.image1.name}</p>
+            )}
+          </div>
 
-        {/* Style */}
-        <div>
-          <label className="text-sm font-medium">Style</label>
-          <select
-            name="style"
-            value={form.style}
-            onChange={handleChange}
-            className="w-full mt-1 p-2 border rounded-md border-charcoal/20 focus:outline-none focus:border-gold focus:ring-0"
-          >
-            <option value="">Select Style</option>
-            {styles.map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
-        </div>
+          <div>
+            <label className="text-sm font-medium">Product Image 2 (Optional)</label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => handleImageChange(e, 2)}
+              className="w-full mt-1 p-2 border rounded-md border-charcoal/20 focus:outline-none focus:border-gold focus:ring-0"
+            />
+            {form.image2 && (
+              <p className="text-xs text-green-600 mt-1">✓ {form.image2.name}</p>
+            )}
+          </div>
 
-        {/* Occasion */}
-        <div>
-          <label className="text-sm font-medium">Occasion</label>
-          <select
-            name="occasion"
-            value={form.occasion}
-            onChange={handleChange}
-            className="w-full mt-1 p-2 border rounded-md border-charcoal/20 focus:outline-none focus:border-gold focus:ring-0"
-          >
-            <option value="">Select Occasion</option>
-            {occasions.map((o) => (
-              <option key={o} value={o}>{o}</option>
-            ))}
-          </select>
-        </div>
+          <div>
+            <label className="text-sm font-medium">Product Image 3 (Optional)</label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => handleImageChange(e, 3)}
+              className="w-full mt-1 p-2 border rounded-md border-charcoal/20 focus:outline-none focus:border-gold focus:ring-0"
+            />
+            {form.image3 && (
+              <p className="text-xs text-green-600 mt-1">✓ {form.image3.name}</p>
+            )}
+          </div>
 
-        {/* Image Upload */}
-        <div>
-          <label className="text-sm font-medium">Product Image</label>
-          <input
-            type="file"
-            name="image"
-            accept="image/*"
-            onChange={handleChange}
-            className="w-full mt-1 p-2 border rounded-md border-charcoal/20 focus:outline-none focus:border-gold focus:ring-0"
-          />
+          <div>
+            <label className="text-sm font-medium">Product Image 4 (Optional)</label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => handleImageChange(e, 4)}
+              className="w-full mt-1 p-2 border rounded-md border-charcoal/20 focus:outline-none focus:border-gold focus:ring-0"
+            />
+            {form.image4 && (
+              <p className="text-xs text-green-600 mt-1">✓ {form.image4.name}</p>
+            )}
+          </div>
         </div>
 
         {/* Submit */}
         <button
           type="submit"
-          className="w-full bg-gold text-white py-2 rounded-md text-sm tracking-wider"
+          disabled={loading}
+          className="w-full bg-gold text-white py-2 rounded-md text-sm tracking-wider hover:bg-gold/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Add Product
+          {loading ? "Adding Product..." : "Add Product"}
         </button>
 
       </form>

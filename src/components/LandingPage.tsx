@@ -136,6 +136,7 @@ function HeroSection({ onNavigate, scrollY }: { onNavigate: (page: string) => vo
 }
 
 function ShowcaseCarousel({ products, onNavigate }: { products: Product[]; onNavigate: (page: string) => void }) {
+  
   return (
     <section id="featured-collection" className="py-20 px-6 bg-gradient-to-b from-white to-pearl/30">
       <div className="max-w-7xl mx-auto">
@@ -159,7 +160,7 @@ function ShowcaseCarousel({ products, onNavigate }: { products: Product[]; onNav
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {products.slice(0, 8).map((product, index) => (
+            {[...products].reverse().slice(0, 8).map((product, index) => (
               <div
                 key={product.id || index}
                 className="animate-fade-in-up"

@@ -12,7 +12,7 @@ import {
   CircleFadingPlus,
   Trash2
 } from 'lucide-react';
-import { allProducts, Product } from '../data/products';
+import { /* allProducts, */ Product, updatedProduct } from '../data/products';
 import Navbar from './Navbar';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -75,6 +75,25 @@ export default function AdminDashboard() {
 }
 
 function DashboardView() {
+
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+    
+  
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const data = await getMethod({ url: "/product/list" });
+        setAllProducts(data?.product);  
+
+      } catch (error) {
+        console.error("Failed to fetch products", error);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+
+
   const stats = {
     totalRevenue: 147250,
     totalOrders: 342,
@@ -209,11 +228,11 @@ function DashboardView() {
 function ProductsView({ onAddProduct }: { onAddProduct: () => void }) {
     const handleDelete = async (id: string) => {
       if (!confirm("Are you sure you want to delete this product?")) return;
-
+      console.log(id);
       try {
         await postMethod({ url: "/product/remove", body: { id } });
         // remove deleted product from UI
-        setAllProducts((prev) => prev.filter((p) => p.id !== id));
+        setAllProducts((prev) => prev.filter((p) => p._id !== id));
         toast.success("Product deleted successfully!");
       } catch (err) {
         console.error(err);
@@ -221,7 +240,7 @@ function ProductsView({ onAddProduct }: { onAddProduct: () => void }) {
       }
     };
 
-    const [allProducts, setAllProducts] = useState<Product[]>([]);
+    const [allProducts, setAllProducts] = useState<updatedProduct[]>([]);
     
   
     useEffect(() => {
@@ -237,6 +256,8 @@ function ProductsView({ onAddProduct }: { onAddProduct: () => void }) {
   
       fetchProducts();
     }, []);
+
+    console.log(allProducts);
 
   return (
     <div className="space-y-6 animate-fade-in-up">
@@ -262,12 +283,12 @@ function ProductsView({ onAddProduct }: { onAddProduct: () => void }) {
         {allProducts.length == 0 && <div>No product present at a moment!</div>}
         {allProducts.map((product) => (
           <div
-            key={product?.id}
+            key={product?._id}
             className="relative bg-white border border-charcoal/5 p-4 hover:border-gold/20 transition-all"
           >
             {/* Delete Button - Top Right */}
             <button
-              onClick={() => handleDelete(product?.id)}
+              onClick={() => handleDelete(product?._id)}
               className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center 
                         rounded-full border border-gold text-gold hover:bg-gold 
                    hover:text-white transition"
@@ -277,7 +298,7 @@ function ProductsView({ onAddProduct }: { onAddProduct: () => void }) {
 
       <div className="flex gap-4">
         <img
-          src={product.image_url}
+          src={product.image[0]}
           alt={product.name}
           className="w-24 h-24 object-cover border border-charcoal/5"
         />

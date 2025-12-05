@@ -11,6 +11,19 @@ export interface Product {
   style?: string;
   occasion?: string;
 }
+export interface updatedProduct {
+  _id: string;
+  name: string;
+  description: string;
+  price: number;
+  category: string;
+  image: string[];
+  stock_count: number;
+  in_stock: boolean;
+  stone_type?: string;
+  style?: string;
+  occasion?: string;
+}
 
 export const luxuryHealingBracelets: Product[] = [
   {

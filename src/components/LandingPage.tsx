@@ -47,7 +47,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
       <ShowcaseCarousel products={featuredProducts} onNavigate={onNavigate} />
       <BrandPromiseSection />
       <TestimonialsSection />
-      <Footer />
+      <Footer onNavigate={onNavigate}/>
     </div>
   );
 }

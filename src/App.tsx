@@ -22,15 +22,15 @@ function AppContent() {
       case 'home':
         return <LandingPage onNavigate={setCurrentPage} />;
       case 'about':
-        return <AboutPage />;
+        return <AboutPage onNavigate={setCurrentPage}/>;
       case 'store':
-        return <StorePage />;
+        return <StorePage onNavigate={setCurrentPage}/>;
       case 'cart':
         return <CartPage onNavigate={setCurrentPage} />;
       // case 'admin':
       //   return <AdminDashboard />;
       case 'contact':
-        return <ContactPage/>
+        return <ContactPage onNavigate={setCurrentPage}/>
       default:
         return <LandingPage onNavigate={setCurrentPage} />;
     }

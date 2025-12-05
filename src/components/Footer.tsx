@@ -1,4 +1,8 @@
-export default function Footer() {
+interface FooterProps {
+  onNavigate: (page: string) => void;
+}
+
+export default function Footer({ onNavigate }: FooterProps) {
   return (
     <footer className="bg-charcoal text-white py-12 px-6">
       <div className="max-w-7xl mx-auto">
@@ -23,8 +27,12 @@ export default function Footer() {
           <div>
             <h4 className="text-sm font-normal mb-4 uppercase tracking-wider">Company</h4>
             <ul className="space-y-2 text-xs text-white/60 font-light">
-              <li className="hover:text-gold transition-colors cursor-pointer">About Us</li>
-              <li className="hover:text-gold transition-colors cursor-pointer">Contact</li>
+              <li
+              onClick={() => {onNavigate("about");window.scrollTo(0,0);}}
+              className="hover:text-gold transition-colors cursor-pointer">About Us</li>
+              <li 
+              onClick={() => {onNavigate("contact");window.scrollTo(0,0)}}
+              className="hover:text-gold transition-colors cursor-pointer">Contact</li>
               <li className="hover:text-gold transition-colors cursor-pointer">Sustainability</li>
               <li className="hover:text-gold transition-colors cursor-pointer">Craftsmanship</li>
             </ul>

@@ -4,7 +4,11 @@ import { useState } from 'react';
 import { postMethod } from '../api/api';
 import toast from 'react-hot-toast';
 
-export default function ContactPage() {
+interface ContactPageProps {
+  onNavigate: (page: string) => void;
+}
+
+export default function ContactPage({ onNavigate }: ContactPageProps) {
   return (
     <div className="min-h-screen pt-16">
       <HeroSection />
@@ -14,7 +18,7 @@ export default function ContactPage() {
       <StoreInfoSection />
       <MapSection />
 
-      <Footer />
+      <Footer onNavigate={onNavigate}/>
     </div>
   );
 }
@@ -378,7 +382,7 @@ function StoreInfoSection() {
     {
       icon: Mail,
       title: "Email",
-      value: "support@crystalcasting.com",
+      value: "support@ccjewellary.com",
     },
     {
       icon: MapPin,

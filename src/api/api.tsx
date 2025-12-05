@@ -1,6 +1,9 @@
 import axios from "axios";
 
-const URL = "https://ccjewllery-backend.onrender.com/api";
+// Use localhost for local development, production URL for deployed frontend
+const URL = import.meta.env.DEV 
+  ? "http://localhost:4000/api" 
+  : "https://ccjewllery-backend.onrender.com/api";
 
 // Define a type for the argument
 interface PostMethodProps {

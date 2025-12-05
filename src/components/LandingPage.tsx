@@ -1,8 +1,8 @@
-import { ArrowRight, Star, Sparkles } from 'lucide-react';
+import { Star } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import ProductCard from './ProductCard';
 import Footer from './Footer';
-// import { allProducts } from '../data/products';
+ //import { allProducts } from '../data/products';
 import { getMethod } from '../api/api';
 import { Product } from '../data/products';
 
@@ -12,27 +12,45 @@ interface LandingPageProps {
 
 export default function LandingPage({ onNavigate }: LandingPageProps) {
   const [scrollY, setScrollY] = useState(0);
-
-  const [allProducts, setAllProducts] = useState([]);
-  
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
 
   useEffect(() => {
     const fetchProducts = async () => {
       try {
         const data = await getMethod({ url: "/product/list" });
-        setAllProducts(data?.product);  
-
+        
+        // Map backend products to frontend Product interface
+        if (data?.success && data?.product && Array.isArray(data.product)) {
+          const mappedProducts: Product[] = data.product.map((p: any) => ({
+            id: p._id ? p._id.toString() : '', // Convert MongoDB _id to string
+            name: p.name || '',
+            description: p.description || '',
+            price: p.price || 0,
+            category: p.category || '',
+            image_url: p.image && Array.isArray(p.image) && p.image.length > 0 
+              ? p.image[0] 
+              : 'https://via.placeholder.com/400', // Fallback image
+            stock_count: 10, // Default
+            in_stock: true,
+            stone_type: p.stone_type || p.subCategory || undefined,
+            style: p.style,
+            occasion: p.occasion,
+          }));
+          setAllProducts(mappedProducts);
+        } else {
+          console.warn('No products found in backend response');
+          setAllProducts([]);
+        }
       } catch (error) {
         console.error("Failed to fetch products", error);
+        setAllProducts([]);
       }
     };
 
     fetchProducts();
   }, []);
 
-
-
-  const featuredProducts = allProducts?.slice(0, 12);
+  const featuredProducts = allProducts?.slice(0, 12) || [];
   
 
   useEffect(() => {
@@ -130,45 +148,28 @@ function ShowcaseCarousel({ products, onNavigate }: { products: Product[]; onNav
           </p>
         </div>
 
-        <div className="flex justify-center align-center">
-          {
-            products.length == 0? (
-              <div>No product present at a moment!</div>
-            ):(
-              <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6'>
-                {
-                  products.length < 8 ? 
-                  (
-                    <div>
-                      {products.slice(0, products.length).map((product, index) => (
-                          <div
-                            key={product.id}
-                            className="animate-fade-in-up"
-                            style={{ animationDelay: `${index * 0.05}s` }}
-                          >
-                          <ProductCard product={product} onViewDetails={() => onNavigate('store')} />
-                        </div>
-                      ))}
-                    </div>
-                  ) : 
-                  (
-                    <div>
-                      {products.slice(0, 8).map((product, index) => (
-                        <div
-                          key={product.id}
-                          className="animate-fade-in-up"
-                          style={{ animationDelay: `${index * 0.05}s` }}
-                        >
-                          <ProductCard product={product} onViewDetails={() => onNavigate('store')} />
-                        </div>
-                      ))}
-                    </div>
-                  ) 
-                }
+        {products.length === 0 ? (
+          <div className="text-center py-16">
+            <p className="text-sm text-charcoal/60 uppercase tracking-wider">
+              No products available at the moment
+            </p>
+            <p className="text-xs text-charcoal/40 mt-2">
+              Please add products via Admin Dashboard
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {products.slice(0, 8).map((product, index) => (
+              <div
+                key={product.id || index}
+                className="animate-fade-in-up"
+                style={{ animationDelay: `${index * 0.05}s` }}
+              >
+                <ProductCard product={product} onViewDetails={() => onNavigate('store')} />
               </div>
-            )
-          }
-        </div>
+            ))}
+          </div>
+        )}
 
         {
           products.length > 8 && (

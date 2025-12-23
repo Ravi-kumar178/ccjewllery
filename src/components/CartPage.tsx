@@ -1,8 +1,9 @@
-import { Minus, Plus, Trash2, ArrowLeft, CreditCard, Wallet } from 'lucide-react';
+import { Minus, Plus, Trash2, ArrowLeft, CreditCard, Wallet, Smartphone } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { useState } from 'react';
 import { postMethod, getMethod } from '../api/api';
 import toast from 'react-hot-toast';
+import '../types/razorpay.d.ts';
 
 interface CartPageProps {
   onNavigate: (page: string) => void;
@@ -14,7 +15,7 @@ export default function CartPage({ onNavigate }: CartPageProps) {
   const [showCheckoutForm, setShowCheckoutForm] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'COD' | 'AUTHORIZE_NET'>('COD');
+  const [paymentMethod, setPaymentMethod] = useState<'COD' | 'AUTHORIZE_NET' | 'RAZORPAY'>('COD');
   const [cartId, setCartId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
@@ -281,6 +282,149 @@ export default function CartPage({ onNavigate }: CartPageProps) {
     }
   };
 
+  // Handle Razorpay Payment
+  const handleRazorpayPayment = async () => {
+    // Validate form fields
+    for (const key in formData) {
+      // @ts-ignore
+      if (!formData[key]?.trim()) {
+        setError("Please fill all required fields.");
+        return;
+      }
+    }
+
+    setError("");
+    setLoading(true);
+
+    try {
+      // Create cart and add items if not already done
+      let finalCartId = cartId;
+      if (!finalCartId) {
+        finalCartId = await createCartAndAddItems();
+      }
+
+      // Step 1: Create Razorpay order on backend
+      const orderResponse = await postMethod({
+        url: '/order/razorpay',
+        body: {
+          cartId: finalCartId,
+          amount: Math.round(total * 1.08 * 100), // Amount in paise
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          street: formData.street,
+          city: formData.city,
+          state: formData.state,
+          zipCode: formData.zip,
+          country: formData.country,
+          phone: formData.phone
+        }
+      });
+
+      if (!orderResponse.success) {
+        setError(orderResponse.message || 'Failed to create order. Please try again.');
+        setLoading(false);
+        return;
+      }
+
+      console.log('Razorpay Order created:', orderResponse);
+
+      // Step 2: Open Razorpay Checkout
+      const options = {
+        key: orderResponse.key_id,
+        amount: orderResponse.razorpayOrder.amount,
+        currency: orderResponse.razorpayOrder.currency || 'INR',
+        order_id: orderResponse.razorpayOrder.id,
+        name: 'CC Jewellery',
+        description: `Order #${orderResponse.orderNumber || 'New Order'}`,
+        image: '/ccjewelers_logo.png',
+        
+        // Handler for successful payment
+        handler: async function (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) {
+          console.log('Razorpay Payment successful:', response);
+          
+          // Step 3: Verify Payment on Backend
+          try {
+            const verifyResponse = await postMethod({
+              url: '/order/verifyrazorpay',
+              body: {
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                cartId: finalCartId,
+                orderId: orderResponse.orderId
+              }
+            });
+
+            if (verifyResponse.success) {
+              toast.success(`🎉 Payment Successful! Order #${verifyResponse.orderNumber || orderResponse.orderNumber}`);
+              clearCart();
+              setShowCheckoutForm(false);
+              setFormData({
+                firstName: "",
+                lastName: "",
+                email: "",
+                street: "",
+                city: "",
+                state: "",
+                zip: "",
+                country: "",
+                phone: "",
+              });
+              setCartId(null);
+            } else {
+              setError('Payment verification failed: ' + (verifyResponse.message || 'Unknown error'));
+              toast.error('Payment verification failed');
+            }
+          } catch (verifyError: any) {
+            console.error('Verification error:', verifyError);
+            setError('Payment verification failed. Please contact support.');
+            toast.error('Payment verification failed');
+          }
+          
+          setLoading(false);
+        },
+        
+        // Pre-fill customer details
+        prefill: {
+          name: `${formData.firstName} ${formData.lastName}`,
+          email: formData.email,
+          contact: formData.phone
+        },
+        
+        // Customize theme - Gold color for jewelry store
+        theme: {
+          color: '#D4AF37'
+        },
+        
+        // Handle checkout close
+        modal: {
+          ondismiss: function () {
+            console.log('Razorpay checkout closed by user');
+            setLoading(false);
+          }
+        }
+      };
+
+      // Check if Razorpay is loaded
+      if (typeof window.Razorpay === 'undefined') {
+        setError('Payment gateway not loaded. Please refresh the page and try again.');
+        setLoading(false);
+        return;
+      }
+
+      const razorpay = new window.Razorpay(options);
+      razorpay.open();
+
+    } catch (error: any) {
+      console.error('Razorpay payment error:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Something went wrong. Please try again.';
+      setError(errorMessage);
+      toast.error(errorMessage);
+      setLoading(false);
+    }
+  };
+
 
 
   if (items.length === 0) {
@@ -421,35 +565,50 @@ export default function CartPage({ onNavigate }: CartPageProps) {
                   <label className="block text-sm font-medium text-charcoal mb-3">
                     Payment Method
                   </label>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-3 gap-4">
                     <button
                       type="button"
                       onClick={() => setPaymentMethod('COD')}
-                      className={`p-4 rounded-lg border-2 transition-all flex items-center gap-3 ${
+                      className={`p-4 rounded-lg border-2 transition-all flex flex-col items-center gap-2 ${
                         paymentMethod === 'COD'
                           ? 'border-gold bg-gold/10'
                           : 'border-charcoal/20 hover:border-gold/50'
                       }`}
                     >
-                      <Wallet className="w-5 h-5" />
-                      <div className="text-left">
-                        <div className="font-semibold text-charcoal">Cash on Delivery</div>
-                        <div className="text-xs text-charcoal/60">Pay when you receive</div>
+                      <Wallet className="w-6 h-6" />
+                      <div className="text-center">
+                        <div className="font-semibold text-charcoal text-sm">COD</div>
+                        <div className="text-xs text-charcoal/60">Pay on delivery</div>
                       </div>
                     </button>
                     <button
                       type="button"
                       onClick={() => setPaymentMethod('AUTHORIZE_NET')}
-                      className={`p-4 rounded-lg border-2 transition-all flex items-center gap-3 ${
+                      className={`p-4 rounded-lg border-2 transition-all flex flex-col items-center gap-2 ${
                         paymentMethod === 'AUTHORIZE_NET'
                           ? 'border-gold bg-gold/10'
                           : 'border-charcoal/20 hover:border-gold/50'
                       }`}
                     >
-                      <CreditCard className="w-5 h-5" />
-                      <div className="text-left">
-                        <div className="font-semibold text-charcoal">Authorize.Net</div>
-                        <div className="text-xs text-charcoal/60">Secure payment</div>
+                      <CreditCard className="w-6 h-6" />
+                      <div className="text-center">
+                        <div className="font-semibold text-charcoal text-sm">Card</div>
+                        <div className="text-xs text-charcoal/60">Authorize.Net</div>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod('RAZORPAY')}
+                      className={`p-4 rounded-lg border-2 transition-all flex flex-col items-center gap-2 ${
+                        paymentMethod === 'RAZORPAY'
+                          ? 'border-gold bg-gold/10'
+                          : 'border-charcoal/20 hover:border-gold/50'
+                      }`}
+                    >
+                      <Smartphone className="w-6 h-6" />
+                      <div className="text-center">
+                        <div className="font-semibold text-charcoal text-sm">Razorpay</div>
+                        <div className="text-xs text-charcoal/60">UPI / Cards / Wallets</div>
                       </div>
                     </button>
                   </div>
@@ -634,19 +793,35 @@ export default function CartPage({ onNavigate }: CartPageProps) {
                 onClick={() => {
                   if (!showCheckoutForm) {
                     handleProceedToCheckout();
+                  } else if (paymentMethod === 'RAZORPAY') {
+                    handleRazorpayPayment();
                   } else {
                     handlePlaceOrder();
                   }
                 }}
                 disabled={loading}
-                className="w-full py-4 bg-gold text-white rounded-xl hover:bg-gold/90 transition-all font-medium mb-4 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-4 bg-gold text-white rounded-xl hover:bg-gold/90 transition-all font-medium mb-4 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {loading 
-                  ? "Processing..." 
-                  : showCheckoutForm 
-                    ? `Place Order (${paymentMethod === 'COD' ? 'Cash on Delivery' : 'Authorize.Net'})` 
-                    : "Proceed to Checkout"
-                }
+                {loading ? (
+                  "Processing..."
+                ) : !showCheckoutForm ? (
+                  "Proceed to Checkout"
+                ) : paymentMethod === 'COD' ? (
+                  <>
+                    <Wallet className="w-5 h-5" />
+                    Place Order (Cash on Delivery)
+                  </>
+                ) : paymentMethod === 'AUTHORIZE_NET' ? (
+                  <>
+                    <CreditCard className="w-5 h-5" />
+                    Pay with Authorize.Net
+                  </>
+                ) : (
+                  <>
+                    <Smartphone className="w-5 h-5" />
+                    Pay with Razorpay
+                  </>
+                )}
               </button>
               {error && (
                 <p className="text-red-600 text-sm mb-3 text-center">

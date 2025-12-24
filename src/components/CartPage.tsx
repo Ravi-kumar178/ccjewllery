@@ -15,7 +15,7 @@ export default function CartPage({ onNavigate }: CartPageProps) {
   const [showCheckoutForm, setShowCheckoutForm] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'COD' | 'AUTHORIZE_NET' | 'RAZORPAY'>('COD');
+  const [paymentMethod, setPaymentMethod] = useState<'COD' | 'AUTHORIZE_NET' | 'RAZORPAY'>('AUTHORIZE_NET');
   const [cartId, setCartId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
@@ -565,8 +565,8 @@ export default function CartPage({ onNavigate }: CartPageProps) {
                   <label className="block text-sm font-medium text-charcoal mb-3">
                     Payment Method
                   </label>
-                  <div className="grid grid-cols-3 gap-4">
-                    <button
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* <button
                       type="button"
                       onClick={() => setPaymentMethod('COD')}
                       className={`p-4 rounded-lg border-2 transition-all flex flex-col items-center gap-2 ${
@@ -580,7 +580,7 @@ export default function CartPage({ onNavigate }: CartPageProps) {
                         <div className="font-semibold text-charcoal text-sm">COD</div>
                         <div className="text-xs text-charcoal/60">Pay on delivery</div>
                       </div>
-                    </button>
+                    </button> */}
                     <button
                       type="button"
                       onClick={() => setPaymentMethod('AUTHORIZE_NET')}
@@ -596,7 +596,7 @@ export default function CartPage({ onNavigate }: CartPageProps) {
                         <div className="text-xs text-charcoal/60">Authorize.Net</div>
                       </div>
                     </button>
-                    <button
+                    {/* <button
                       type="button"
                       onClick={() => setPaymentMethod('RAZORPAY')}
                       className={`p-4 rounded-lg border-2 transition-all flex flex-col items-center gap-2 ${
@@ -610,7 +610,7 @@ export default function CartPage({ onNavigate }: CartPageProps) {
                         <div className="font-semibold text-charcoal text-sm">Razorpay</div>
                         <div className="text-xs text-charcoal/60">UPI / Cards / Wallets</div>
                       </div>
-                    </button>
+                    </button> */}
                   </div>
                 </div>
 
@@ -745,12 +745,12 @@ export default function CartPage({ onNavigate }: CartPageProps) {
                         type="password"
                       />
 
-                      <div className="md:col-span-2 p-3 bg-gold/5 rounded-lg text-xs text-charcoal/70">
+                      {/* <div className="md:col-span-2 p-3 bg-gold/5 rounded-lg text-xs text-charcoal/70">
                         <p className="font-medium mb-1">Test Cards (Sandbox Mode):</p>
                         <p>• Approved: 4111 1111 1111 1111</p>
                         <p>• Declined: 4222 2222 2222 2220</p>
                         <p>• CVV: Any 3 digits | Expiry: Any future date (MM/YY)</p>
-                      </div>
+                      </div> */}
                     </>
                   )}
                 </form>

@@ -37,7 +37,7 @@ export interface Order {
   lastName:string;
   customer: string;
   items: OrderItem[]; 
-  total: number;
+  amount: number;
   status: "Order Placed" | "Processing" | "Shipped" | "Delivered"; 
   date: string;
 }

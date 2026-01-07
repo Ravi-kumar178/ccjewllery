@@ -12,7 +12,7 @@ import {
   CircleFadingPlus,
   Trash2,
 } from 'lucide-react';
-import { /* allProducts, */ Order, Product, updatedProduct } from '../data/products';
+import { /* allProducts, */ Order, updatedProduct } from '../data/products';
 import Navbar from './Navbar';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -75,47 +75,35 @@ export default function AdminDashboard() {
 }
 
 function DashboardView() {
+  const [stats, setStats] = useState({
+    totalRevenue: 0,
+    totalOrders: 0,
+    totalProducts: 0,
+    activeUsers: 0,
+  });
+  const [loading, setLoading] = useState(true);
 
-  const [allProducts, setAllProducts] = useState<Product[]>([]);
-    
-  
   useEffect(() => {
-    const fetchProducts = async () => {
+    const fetchStats = async () => {
       try {
-        const data = await getMethod({ url: "/product/list" });
-        setAllProducts(data?.product);  
-
+        const data = await getMethod({ url: "/admin/stats" });
+        if (data?.success && data?.stats) {
+          setStats({
+            totalRevenue: data.stats.revenue || 0,
+            totalOrders: data.stats.orders || 0,
+            totalProducts: data.stats.products || 0,
+            activeUsers: data.stats.users || 0,
+          });
+        }
       } catch (error) {
-        console.error("Failed to fetch products", error);
+        console.error("Failed to fetch stats", error);
+      } finally {
+        setLoading(false);
       }
     };
 
-    fetchProducts();
+    fetchStats();
   }, []);
-
-  const [orders, setOrders] = useState<Order[]>([]);
-
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const data = await postMethod({ url: "/order/list",body:"" });
-        setOrders(data?.orders);  
-
-      } catch (error) {
-        console.error("Failed to fetch products", error);
-      }
-    };
-
-    fetchProducts();
-  }, []);
-
-
-  const stats = {
-    totalRevenue: 147250,
-    totalOrders: orders?.length,
-    totalProducts: allProducts?.length,
-    activeUsers: 1248,
-  };
 
   const statCards = [
     {
@@ -143,6 +131,20 @@ function DashboardView() {
       change: '+23.1%'
     },
   ];
+
+  if (loading) {
+    return (
+      <div className="space-y-8 animate-fade-in-up">
+        <div>
+          <h1 className="text-2xl font-serif font-light text-charcoal mb-1 tracking-wide">Dashboard</h1>
+          <p className="text-xs text-charcoal/50 uppercase tracking-widest">Admin Panel Overview</p>
+        </div>
+        <div className="flex items-center justify-center py-12">
+          <p className="text-sm text-charcoal/60">Loading stats...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-fade-in-up">
@@ -396,14 +398,33 @@ function OrdersView() {
     };
 
 
-  const handleStatusChange = (id: string, newStatus: Order["status"]) => {
+  const handleStatusChange = async (id: string, newStatus: Order["status"]) => {
+    // Optimistically update UI
     const updated = orders.map(order =>
       order._id === id ? { ...order, status: newStatus } : order
     );
     setOrders(updated);
 
-    // OPTIONAL: Hit API to update in backend
-    // await axios.put(`/orders/${id}`, { status: newStatus });
+    // Call API to update status in backend and send email
+    try {
+      const response = await postMethod({ 
+        url: "/order/status", 
+        body: { orderId: id, status: newStatus } 
+      });
+      
+      if (response?.success) {
+        toast.success(`Order status updated to ${newStatus}. Email sent to customer.`);
+      } else {
+        // Revert on error
+        setOrders(orders);
+        toast.error(response?.message || 'Failed to update status');
+      }
+    } catch (error: any) {
+      // Revert on error
+      setOrders(orders);
+      console.error("Failed to update order status:", error);
+      toast.error(error?.response?.data?.message || 'Failed to update order status');
+    }
   };
 
   return (
@@ -434,8 +455,6 @@ function OrdersView() {
                   <td className="px-4 py-3 text-xs text-charcoal/60"> {order.items?.reduce((sum, item) => sum + item.quantity, 0)}</td>
                   <td className="px-4 py-3 text-xs font-light text-gold">${order?.amount}</td>
                   <td className="px-4 py-3">
-                    {/* ⭐ REPLACED STATIC STATUS WITH SELECT */}
-                  <td className="px-4 py-3">
                     <select
                      value={order.status}
                      onChange={(e) =>
@@ -448,7 +467,6 @@ function OrdersView() {
                       <option value="Shipped">Shipped</option>
                       <option value="Delivered">Delivered</option>
                     </select>
-                  </td>
                   </td>
                   <td className="px-4 py-3 text-xs text-charcoal/50">{new Date(order?.date).toLocaleDateString()}</td>
                 </tr>
@@ -569,15 +587,48 @@ function AnalyticsView() {
   );
 }
 
+interface UserWithStats {
+  _id: string;
+  name: string;
+  email: string;
+  orders: number;
+  spent: number;
+  joined: string;
+  status: 'VIP' | 'Regular' | 'New';
+  profileImage?: string;
+}
+
 function UsersView() {
-  const users = [
-    { name: 'Sarah Johnson', email: 'sarah.j@email.com', orders: 12, spent: 3240, joined: '2024-08-15', status: 'VIP' },
-    { name: 'Michael Chen', email: 'mchen@email.com', orders: 8, spent: 1890, joined: '2024-09-22', status: 'Regular' },
-    { name: 'Emma Williams', email: 'emma.w@email.com', orders: 15, spent: 4560, joined: '2024-07-10', status: 'VIP' },
-    { name: 'James Brown', email: 'jbrown@email.com', orders: 5, spent: 980, joined: '2024-10-05', status: 'Regular' },
-    { name: 'Olivia Davis', email: 'olivia.d@email.com', orders: 3, spent: 450, joined: '2024-11-01', status: 'New' },
-    { name: 'William Miller', email: 'wmiller@email.com', orders: 9, spent: 2150, joined: '2024-08-28', status: 'Regular' },
-  ];
+  const [users, setUsers] = useState<UserWithStats[]>([]);
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    activeUsers: 0,
+    vipUsers: 0,
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const data = await getMethod({ url: "/admin/users" });
+        if (data?.success) {
+          setUsers(data.users || []);
+          setStats({
+            totalUsers: data.stats?.totalUsers || 0,
+            activeUsers: data.stats?.activeUsers || 0,
+            vipUsers: data.stats?.vipUsers || 0,
+          });
+        }
+      } catch (error) {
+        console.error("Failed to fetch users", error);
+        toast.error("Failed to load users");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUsers();
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -588,28 +639,50 @@ function UsersView() {
     }
   };
 
+  const vipPercentage = stats.totalUsers > 0 
+    ? ((stats.vipUsers / stats.totalUsers) * 100).toFixed(1)
+    : '0';
+
+  const activePercentage = stats.totalUsers > 0
+    ? ((stats.activeUsers / stats.totalUsers) * 100).toFixed(1)
+    : '0';
+
+  if (loading) {
+    return (
+      <div className="space-y-6 animate-fade-in-up">
+        <div>
+          <h1 className="text-2xl font-serif font-light text-charcoal mb-1 tracking-wide">Users</h1>
+          <p className="text-xs text-charcoal/50">Loading users...</p>
+        </div>
+        <div className="flex items-center justify-center py-12">
+          <p className="text-sm text-charcoal/60">Loading users...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-fade-in-up">
       <div>
         <h1 className="text-2xl font-serif font-light text-charcoal mb-1 tracking-wide">Users</h1>
-        <p className="text-xs text-charcoal/50">1,248 registered users</p>
+        <p className="text-xs text-charcoal/50">{stats.totalUsers.toLocaleString()} registered users</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-white border border-charcoal/5 p-5">
           <p className="text-[10px] text-charcoal/50 mb-2 uppercase tracking-wider">Total Users</p>
-          <p className="text-2xl font-light text-charcoal">1,248</p>
-          <p className="text-[10px] text-green-600 mt-1">+23.1% this month</p>
+          <p className="text-2xl font-light text-charcoal">{stats.totalUsers.toLocaleString()}</p>
+          <p className="text-[10px] text-green-600 mt-1">Registered users</p>
         </div>
         <div className="bg-white border border-charcoal/5 p-5">
           <p className="text-[10px] text-charcoal/50 mb-2 uppercase tracking-wider">VIP Members</p>
-          <p className="text-2xl font-light text-charcoal">147</p>
-          <p className="text-[10px] text-gold mt-1">11.8% of users</p>
+          <p className="text-2xl font-light text-charcoal">{stats.vipUsers.toLocaleString()}</p>
+          <p className="text-[10px] text-gold mt-1">{vipPercentage}% of users</p>
         </div>
         <div className="bg-white border border-charcoal/5 p-5">
-          <p className="text-[10px] text-charcoal/50 mb-2 uppercase tracking-wider">Active Today</p>
-          <p className="text-2xl font-light text-charcoal">89</p>
-          <p className="text-[10px] text-charcoal/60 mt-1">7.1% activity rate</p>
+          <p className="text-[10px] text-charcoal/50 mb-2 uppercase tracking-wider">Active Users</p>
+          <p className="text-2xl font-light text-charcoal">{stats.activeUsers.toLocaleString()}</p>
+          <p className="text-[10px] text-charcoal/60 mt-1">{activePercentage}% activity rate</p>
         </div>
       </div>
 
@@ -627,20 +700,28 @@ function UsersView() {
               </tr>
             </thead>
             <tbody className="divide-y divide-charcoal/5">
-              {users.map((user, index) => (
-                <tr key={index} className="hover:bg-pearl/10 transition-colors">
-                  <td className="px-4 py-3 text-xs font-light text-charcoal">{user.name}</td>
-                  <td className="px-4 py-3 text-xs text-charcoal/60">{user.email}</td>
-                  <td className="px-4 py-3 text-xs text-charcoal/60">{user.orders}</td>
-                  <td className="px-4 py-3 text-xs font-light text-gold">${user.spent.toLocaleString()}</td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-0.5 text-[10px] font-normal uppercase tracking-wider ${getStatusColor(user.status)}`}>
-                      {user.status}
-                    </span>
+              {users.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-8 text-center text-xs text-charcoal/50">
+                    No users found
                   </td>
-                  <td className="px-4 py-3 text-xs text-charcoal/50">{user.joined}</td>
                 </tr>
-              ))}
+              ) : (
+                users.map((user) => (
+                  <tr key={user._id} className="hover:bg-pearl/10 transition-colors">
+                    <td className="px-4 py-3 text-xs font-light text-charcoal">{user.name}</td>
+                    <td className="px-4 py-3 text-xs text-charcoal/60">{user.email}</td>
+                    <td className="px-4 py-3 text-xs text-charcoal/60">{user.orders}</td>
+                    <td className="px-4 py-3 text-xs font-light text-gold">${user.spent.toLocaleString()}</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-0.5 text-[10px] font-normal uppercase tracking-wider ${getStatusColor(user.status)}`}>
+                        {user.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-charcoal/50">{user.joined}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

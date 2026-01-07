@@ -442,18 +442,18 @@ function MapSection() {
     <section className="py-20 px-6 bg-white">
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-10">
-          <h2 className="text-3xl md:text-4xl font-serif font-light text-charcoal tracking-wide">
+          {/* <h2 className="text-3xl md:text-4xl font-serif font-light text-charcoal tracking-wide">
             Find Us on the Map
-          </h2>
+          </h2> */}
         </div>
 
-        <div className="border border-charcoal/10 rounded-xl overflow-hidden">
+        {/* <div className="border border-charcoal/10 rounded-xl overflow-hidden">
           <iframe
             src="https://maps.google.com/maps?q=California,%20USA&t=&z=10&ie=UTF8&iwloc=&output=embed"
             className="w-full h-[400px]"
             loading="lazy"
           ></iframe>
-        </div>
+        </div> */}
       </div>
     </section>
   );

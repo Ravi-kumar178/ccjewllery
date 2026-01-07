@@ -396,14 +396,33 @@ function OrdersView() {
     };
 
 
-  const handleStatusChange = (id: string, newStatus: Order["status"]) => {
+  const handleStatusChange = async (id: string, newStatus: Order["status"]) => {
+    // Optimistically update UI
     const updated = orders.map(order =>
       order._id === id ? { ...order, status: newStatus } : order
     );
     setOrders(updated);
 
-    // OPTIONAL: Hit API to update in backend
-    // await axios.put(`/orders/${id}`, { status: newStatus });
+    // Call API to update status in backend and send email
+    try {
+      const response = await postMethod({ 
+        url: "/order/status", 
+        body: { orderId: id, status: newStatus } 
+      });
+      
+      if (response?.success) {
+        toast.success(`Order status updated to ${newStatus}. Email sent to customer.`);
+      } else {
+        // Revert on error
+        setOrders(orders);
+        toast.error(response?.message || 'Failed to update status');
+      }
+    } catch (error: any) {
+      // Revert on error
+      setOrders(orders);
+      console.error("Failed to update order status:", error);
+      toast.error(error?.response?.data?.message || 'Failed to update order status');
+    }
   };
 
   return (
@@ -434,8 +453,6 @@ function OrdersView() {
                   <td className="px-4 py-3 text-xs text-charcoal/60"> {order.items?.reduce((sum, item) => sum + item.quantity, 0)}</td>
                   <td className="px-4 py-3 text-xs font-light text-gold">${order?.total || 0}</td>
                   <td className="px-4 py-3">
-                    {/* ⭐ REPLACED STATIC STATUS WITH SELECT */}
-                  <td className="px-4 py-3">
                     <select
                      value={order.status}
                      onChange={(e) =>
@@ -448,7 +465,6 @@ function OrdersView() {
                       <option value="Shipped">Shipped</option>
                       <option value="Delivered">Delivered</option>
                     </select>
-                  </td>
                   </td>
                   <td className="px-4 py-3 text-xs text-charcoal/50">{new Date(order?.date).toLocaleDateString()}</td>
                 </tr>

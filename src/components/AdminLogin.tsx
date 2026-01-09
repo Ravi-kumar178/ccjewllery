@@ -12,7 +12,7 @@ export default function AdminLogin() {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (email === "admin@example.com" && password === "admin123") {
+    if (email === "admin@ccjeweler.com" && password === "qwerty123") {
       localStorage.setItem("isAdmin", "true");
       navigate("/admin/dashboard");
     } else {

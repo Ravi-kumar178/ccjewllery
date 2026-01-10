@@ -7,7 +7,7 @@ interface ProductCardProps {
     id: string;
     name: string;
     price: number;
-    image_url: string;
+    image_url: string[];
     stone_type?: string;
   };
   onViewDetails: () => void;
@@ -16,14 +16,15 @@ interface ProductCardProps {
 export default function ProductCard({ product, onViewDetails }: ProductCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const { addItem } = useCart();
-
+  console.log(product);
+  
   const handleAddToCart = (e: React.MouseEvent) => {
     e.stopPropagation();
     addItem({
       id: product.id,
       name: product.name,
       price: product.price,
-      image_url: product.image_url,
+      image_url: product.image_url[0],
     });
   };
 
@@ -36,7 +37,7 @@ export default function ProductCard({ product, onViewDetails }: ProductCardProps
     >
       <div className="relative aspect-[3/4] overflow-hidden bg-pearl/30">
         <img
-          src={product.image_url}
+          src={product.image_url[0]}
           alt={product.name}
           className={`w-full h-full object-cover transition-transform duration-500 ${
             isHovered ? 'scale-105' : 'scale-100'

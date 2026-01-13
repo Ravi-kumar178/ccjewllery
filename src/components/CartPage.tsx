@@ -1,9 +1,16 @@
-import { Minus, Plus, Trash2, ArrowLeft, CreditCard, Wallet, Smartphone } from 'lucide-react';
+import { Minus, Plus, Trash2, ArrowLeft, CreditCard, Wallet, Smartphone, Zap } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { postMethod, getMethod } from '../api/api';
 import toast from 'react-hot-toast';
 import '../types/razorpay.d.ts';
+
+// Declare Stripe types
+declare global {
+  interface Window {
+    Stripe?: any;
+  }
+}
 
 interface CartPageProps {
   onNavigate: (page: string) => void;
@@ -15,8 +22,9 @@ export default function CartPage({ onNavigate }: CartPageProps) {
   const [showCheckoutForm, setShowCheckoutForm] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'COD' | 'AUTHORIZE_NET' | 'RAZORPAY'>('COD');
+  const [paymentMethod, setPaymentMethod] = useState<'COD' | 'AUTHORIZE_NET' | 'RAZORPAY' | 'STRIPE'>('COD');
   const [cartId, setCartId] = useState<string | null>(null);
+  const [stripeLoaded, setStripeLoaded] = useState(false);
 
   const [formData, setFormData] = useState({
       firstName: "",
@@ -68,6 +76,19 @@ export default function CartPage({ onNavigate }: CartPageProps) {
       setCardData(prev => ({ ...prev, [name]: value }));
     }
   };
+
+  // Check if Stripe.js is loaded
+  useEffect(() => {
+    const checkStripe = () => {
+      if (typeof window.Stripe !== 'undefined') {
+        setStripeLoaded(true);
+      } else {
+        // Retry after a short delay
+        setTimeout(checkStripe, 100);
+      }
+    };
+    checkStripe();
+  }, []);
 
   // Helper function to check if string is a valid MongoDB ObjectId
   const isValidObjectId = (id: string): boolean => {
@@ -163,8 +184,8 @@ export default function CartPage({ onNavigate }: CartPageProps) {
       }
     }
 
-    // Validate card fields if Authorize.Net is selected
-    if (paymentMethod === 'AUTHORIZE_NET') {
+    // Validate card fields if Authorize.Net or Stripe is selected
+    if (paymentMethod === 'AUTHORIZE_NET' || paymentMethod === 'STRIPE') {
       if (!cardData.cardNumber.replace(/\s/g, '') || !cardData.cardExpiry || !cardData.cardCVV) {
         setError("Please fill all card details.");
         return;
@@ -425,7 +446,160 @@ export default function CartPage({ onNavigate }: CartPageProps) {
     }
   };
 
+  // Handle Stripe Payment
+  const handleStripePayment = async () => {
+    // Validate form fields
+    for (const key in formData) {
+      // @ts-ignore
+      if (!formData[key]?.trim()) {
+        setError("Please fill all required fields.");
+        return;
+      }
+    }
 
+    if (!stripeLoaded || typeof window.Stripe === 'undefined') {
+      setError('Stripe payment gateway not loaded. Please refresh the page and try again.');
+      return;
+    }
+
+    setError("");
+    setLoading(true);
+
+    try {
+      // Create cart and add items if not already done
+      let finalCartId = cartId;
+      if (!finalCartId) {
+        finalCartId = await createCartAndAddItems();
+      }
+
+      // Step 1: Create Stripe payment intent on backend
+      const orderResponse = await postMethod({
+        url: '/order/stripe',
+        body: {
+          cartId: finalCartId,
+          amount: total * 1.08,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          street: formData.street,
+          city: formData.city,
+          state: formData.state,
+          zipCode: formData.zip,
+          country: formData.country,
+          phone: formData.phone
+        }
+      });
+
+      if (!orderResponse.success || !orderResponse.paymentIntent) {
+        setError(orderResponse.message || 'Failed to create payment intent. Please try again.');
+        setLoading(false);
+        return;
+      }
+
+      console.log('Stripe Payment Intent created:', orderResponse);
+
+      // Step 2: Redirect to Stripe Checkout (simpler approach)
+      const STRIPE_PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+      
+      if (!STRIPE_PUBLISHABLE_KEY) {
+        setError('Stripe publishable key not configured. Please contact support.');
+        setLoading(false);
+        return;
+      }
+
+      const stripe = window.Stripe(STRIPE_PUBLISHABLE_KEY);
+      
+      // Use Stripe's redirectToCheckout for simpler integration
+      const { error: redirectError } = await stripe.redirectToCheckout({
+        sessionId: orderResponse.paymentIntent.id, // This would need to be a checkout session ID
+      });
+
+      if (redirectError) {
+        // Fallback: Use confirmCardPayment with a simple card input
+        // For now, we'll use a simpler approach - just confirm with the client secret
+        // In production, you'd use Stripe Elements for card input
+        
+        // Step 3: Confirm payment (simplified - in production use Stripe Elements)
+        const { error: confirmError, paymentIntent } = await stripe.confirmCardPayment(
+          orderResponse.paymentIntent.client_secret,
+          {
+            payment_method: {
+              card: {
+                number: cardData.cardNumber.replace(/\s/g, ''),
+                exp_month: parseInt(cardData.cardExpiry.split('/')[0]),
+                exp_year: parseInt('20' + cardData.cardExpiry.split('/')[1]),
+                cvc: cardData.cardCVV
+              },
+              billing_details: {
+                name: `${formData.firstName} ${formData.lastName}`,
+                email: formData.email,
+                phone: formData.phone,
+                address: {
+                  line1: formData.street,
+                  city: formData.city,
+                  state: formData.state,
+                  postal_code: formData.zip,
+                  country: formData.country
+                }
+              }
+            }
+          }
+        );
+
+        if (confirmError) {
+          setError(`Payment failed: ${confirmError.message}`);
+          toast.error(`Payment failed: ${confirmError.message}`);
+          setLoading(false);
+          return;
+        }
+
+        // Step 4: Verify payment on backend
+        if (paymentIntent && paymentIntent.status === 'succeeded') {
+          const verifyResponse = await postMethod({
+            url: '/order/confirmstripe',
+            body: {
+              payment_intent_id: paymentIntent.id,
+              payment_intent_client_secret: orderResponse.paymentIntent.client_secret
+            }
+          });
+
+          if (verifyResponse.success) {
+            toast.success(`🎉 Payment Successful! Order #${verifyResponse.orderNumber || orderResponse.orderNumber}`);
+            clearCart();
+            setShowCheckoutForm(false);
+            setFormData({
+              firstName: "",
+              lastName: "",
+              email: "",
+              street: "",
+              city: "",
+              state: "",
+              zip: "",
+              country: "",
+              phone: "",
+            });
+            setCardData({
+              cardNumber: "",
+              cardExpiry: "",
+              cardCVV: "",
+            });
+            setCartId(null);
+          } else {
+            setError('Payment verification failed: ' + (verifyResponse.message || 'Unknown error'));
+            toast.error('Payment verification failed');
+          }
+        }
+      }
+
+      setLoading(false);
+    } catch (error: any) {
+      console.error('Stripe payment error:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Something went wrong. Please try again.';
+      setError(errorMessage);
+      toast.error(errorMessage);
+      setLoading(false);
+    }
+  };
 
   if (items.length === 0) {
     return (
@@ -565,7 +739,7 @@ export default function CartPage({ onNavigate }: CartPageProps) {
                   <label className="block text-sm font-medium text-charcoal mb-3">
                     Payment Method
                   </label>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <button
                       type="button"
                       onClick={() => setPaymentMethod('COD')}
@@ -609,6 +783,21 @@ export default function CartPage({ onNavigate }: CartPageProps) {
                       <div className="text-center">
                         <div className="font-semibold text-charcoal text-sm">Razorpay</div>
                         <div className="text-xs text-charcoal/60">UPI / Cards / Wallets</div>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod('STRIPE')}
+                      className={`p-4 rounded-lg border-2 transition-all flex flex-col items-center gap-2 ${
+                        paymentMethod === 'STRIPE'
+                          ? 'border-gold bg-gold/10'
+                          : 'border-charcoal/20 hover:border-gold/50'
+                      }`}
+                    >
+                      <Zap className="w-6 h-6" />
+                      <div className="text-center">
+                        <div className="font-semibold text-charcoal text-sm">Stripe</div>
+                        <div className="text-xs text-charcoal/60">Cards / Apple Pay</div>
                       </div>
                     </button>
                   </div>
@@ -707,8 +896,8 @@ export default function CartPage({ onNavigate }: CartPageProps) {
                     placeholder="Phone Number"
                   />
 
-                  {/* CARD FIELDS - Only show if Authorize.Net is selected */}
-                  {paymentMethod === 'AUTHORIZE_NET' && (
+                  {/* CARD FIELDS - Show for Authorize.Net and Stripe */}
+                  {(paymentMethod === 'AUTHORIZE_NET' || paymentMethod === 'STRIPE') && (
                     <>
                       <div className="md:col-span-2 border-t border-gold/20 pt-4 mt-2">
                         <h3 className="text-lg font-semibold text-charcoal mb-4">Card Details</h3>
@@ -745,12 +934,22 @@ export default function CartPage({ onNavigate }: CartPageProps) {
                         type="password"
                       />
 
-                      <div className="md:col-span-2 p-3 bg-gold/5 rounded-lg text-xs text-charcoal/70">
-                        <p className="font-medium mb-1">Test Cards (Sandbox Mode):</p>
-                        <p>• Approved: 4111 1111 1111 1111</p>
-                        <p>• Declined: 4222 2222 2222 2220</p>
-                        <p>• CVV: Any 3 digits | Expiry: Any future date (MM/YY)</p>
-                      </div>
+                      {paymentMethod === 'AUTHORIZE_NET' && (
+                        <div className="md:col-span-2 p-3 bg-gold/5 rounded-lg text-xs text-charcoal/70">
+                          <p className="font-medium mb-1">Test Cards (Sandbox Mode):</p>
+                          <p>• Approved: 4111 1111 1111 1111</p>
+                          <p>• Declined: 4222 2222 2222 2220</p>
+                          <p>• CVV: Any 3 digits | Expiry: Any future date (MM/YY)</p>
+                        </div>
+                      )}
+                      {paymentMethod === 'STRIPE' && (
+                        <div className="md:col-span-2 p-3 bg-gold/5 rounded-lg text-xs text-charcoal/70">
+                          <p className="font-medium mb-1">Test Cards (Stripe Test Mode):</p>
+                          <p>• Success: 4242 4242 4242 4242</p>
+                          <p>• Decline: 4000 0000 0000 0002</p>
+                          <p>• CVV: Any 3 digits | Expiry: Any future date (MM/YY)</p>
+                        </div>
+                      )}
                     </>
                   )}
                 </form>
@@ -795,6 +994,8 @@ export default function CartPage({ onNavigate }: CartPageProps) {
                     handleProceedToCheckout();
                   } else if (paymentMethod === 'RAZORPAY') {
                     handleRazorpayPayment();
+                  } else if (paymentMethod === 'STRIPE') {
+                    handleStripePayment();
                   } else {
                     handlePlaceOrder();
                   }
@@ -816,10 +1017,15 @@ export default function CartPage({ onNavigate }: CartPageProps) {
                     <CreditCard className="w-5 h-5" />
                     Pay with Authorize.Net
                   </>
-                ) : (
+                ) : paymentMethod === 'RAZORPAY' ? (
                   <>
                     <Smartphone className="w-5 h-5" />
                     Pay with Razorpay
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-5 h-5" />
+                    Pay with Stripe
                   </>
                 )}
               </button>

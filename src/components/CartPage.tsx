@@ -16,6 +16,85 @@ interface CartPageProps {
   onNavigate: (page: string) => void;
 }
 
+// Helper function to convert country name to ISO 3166-1 alpha-2 code
+const getCountryCode = (countryName: string): string => {
+  if (!countryName) return 'US'; // Default to US if empty
+  
+  // Convert to lowercase for case-insensitive matching
+  const country = countryName.trim().toLowerCase();
+  
+  // Common country name to ISO code mapping
+  const countryMap: { [key: string]: string } = {
+    'india': 'IN',
+    'united states': 'US',
+    'usa': 'US',
+    'united states of america': 'US',
+    'united kingdom': 'GB',
+    'uk': 'GB',
+    'canada': 'CA',
+    'australia': 'AU',
+    'germany': 'DE',
+    'france': 'FR',
+    'italy': 'IT',
+    'spain': 'ES',
+    'japan': 'JP',
+    'china': 'CN',
+    'brazil': 'BR',
+    'mexico': 'MX',
+    'russia': 'RU',
+    'south korea': 'KR',
+    'netherlands': 'NL',
+    'belgium': 'BE',
+    'switzerland': 'CH',
+    'austria': 'AT',
+    'sweden': 'SE',
+    'norway': 'NO',
+    'denmark': 'DK',
+    'finland': 'FI',
+    'poland': 'PL',
+    'portugal': 'PT',
+    'greece': 'GR',
+    'turkey': 'TR',
+    'saudi arabia': 'SA',
+    'uae': 'AE',
+    'united arab emirates': 'AE',
+    'singapore': 'SG',
+    'malaysia': 'MY',
+    'thailand': 'TH',
+    'indonesia': 'ID',
+    'philippines': 'PH',
+    'vietnam': 'VN',
+    'south africa': 'ZA',
+    'egypt': 'EG',
+    'israel': 'IL',
+    'new zealand': 'NZ',
+    'argentina': 'AR',
+    'chile': 'CL',
+    'colombia': 'CO',
+    'peru': 'PE',
+    'bangladesh': 'BD',
+    'pakistan': 'PK',
+    'sri lanka': 'LK',
+    'nepal': 'NP',
+  };
+  
+  // Check if it's already a 2-character code
+  if (country.length === 2 && /^[A-Za-z]{2}$/.test(country)) {
+    return country.toUpperCase();
+  }
+  
+  // Look up in map
+  const code = countryMap[country];
+  if (code) {
+    return code;
+  }
+  
+  // If not found, try to extract first 2 letters (fallback)
+  // But better to return US as default for Stripe compatibility
+  console.warn(`Country "${countryName}" not found in mapping, defaulting to US`);
+  return 'US';
+};
+
 export default function CartPage({ onNavigate }: CartPageProps) {
   const { items, removeItem, updateQuantity, total, clearCart } = useCart();
 
@@ -25,6 +104,8 @@ export default function CartPage({ onNavigate }: CartPageProps) {
   const [paymentMethod, setPaymentMethod] = useState<'COD' | 'AUTHORIZE_NET' | 'RAZORPAY' | 'STRIPE'>('COD');
   const [cartId, setCartId] = useState<string | null>(null);
   const [stripeLoaded, setStripeLoaded] = useState(false);
+  const [stripeElements, setStripeElements] = useState<any>(null);
+  const [cardElement, setCardElement] = useState<any>(null);
 
   const [formData, setFormData] = useState({
       firstName: "",
@@ -77,11 +158,45 @@ export default function CartPage({ onNavigate }: CartPageProps) {
     }
   };
 
-  // Check if Stripe.js is loaded
+  // Check if Stripe.js is loaded and initialize Elements
   useEffect(() => {
     const checkStripe = () => {
       if (typeof window.Stripe !== 'undefined') {
         setStripeLoaded(true);
+        const STRIPE_PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+        if (STRIPE_PUBLISHABLE_KEY) {
+          const stripe = window.Stripe(STRIPE_PUBLISHABLE_KEY);
+          const elements = stripe.elements();
+          setStripeElements({ stripe, elements });
+          
+          // Create card element when Elements is ready
+          const cardElement = elements.create('card', {
+            style: {
+              base: {
+                fontSize: '16px',
+                color: '#2c2c2c',
+                fontFamily: 'system-ui, -apple-system, sans-serif',
+                '::placeholder': {
+                  color: '#aab7c4',
+                },
+              },
+              invalid: {
+                color: '#dc2626',
+                iconColor: '#dc2626',
+              },
+            },
+          });
+          
+          // Handle real-time validation errors
+          cardElement.on('change', ({error}: any) => {
+            const displayError = document.getElementById('stripe-card-errors');
+            if (displayError) {
+              displayError.textContent = error ? error.message : '';
+            }
+          });
+          
+          setCardElement(cardElement);
+        }
       } else {
         // Retry after a short delay
         setTimeout(checkStripe, 100);
@@ -89,6 +204,22 @@ export default function CartPage({ onNavigate }: CartPageProps) {
     };
     checkStripe();
   }, []);
+
+  // Mount Stripe card element when it's ready and payment method is Stripe
+  useEffect(() => {
+    if (cardElement && stripeElements && paymentMethod === 'STRIPE' && showCheckoutForm) {
+      const cardElementContainer = document.getElementById('stripe-card-element');
+      if (cardElementContainer && !cardElementContainer.hasChildNodes()) {
+        cardElement.mount('#stripe-card-element');
+      }
+      
+      return () => {
+        if (cardElementContainer && cardElementContainer.hasChildNodes()) {
+          cardElement.unmount();
+        }
+      };
+    }
+  }, [cardElement, stripeElements, paymentMethod, showCheckoutForm]);
 
   // Helper function to check if string is a valid MongoDB ObjectId
   const isValidObjectId = (id: string): boolean => {
@@ -498,7 +629,7 @@ export default function CartPage({ onNavigate }: CartPageProps) {
 
       console.log('Stripe Payment Intent created:', orderResponse);
 
-      // Step 2: Redirect to Stripe Checkout (simpler approach)
+      // Step 2: Initialize Stripe with publishable key
       const STRIPE_PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
       
       if (!STRIPE_PUBLISHABLE_KEY) {
@@ -507,88 +638,99 @@ export default function CartPage({ onNavigate }: CartPageProps) {
         return;
       }
 
-      const stripe = window.Stripe(STRIPE_PUBLISHABLE_KEY);
+      if (!stripeElements || !cardElement) {
+        setError('Stripe Elements not initialized. Please refresh the page.');
+        setLoading(false);
+        return;
+      }
+
+      const { stripe } = stripeElements;
       
-      // Use Stripe's redirectToCheckout for simpler integration
-      const { error: redirectError } = await stripe.redirectToCheckout({
-        sessionId: orderResponse.paymentIntent.id, // This would need to be a checkout session ID
+      // Step 3: Create PaymentMethod using Stripe Elements (required by Stripe)
+      const { error: pmError, paymentMethod } = await stripe.createPaymentMethod({
+        type: 'card',
+        card: cardElement,
+        billing_details: {
+          name: `${formData.firstName} ${formData.lastName}`,
+          email: formData.email,
+          phone: formData.phone,
+          address: {
+            line1: formData.street,
+            city: formData.city,
+            state: formData.state,
+            postal_code: formData.zip,
+            country: getCountryCode(formData.country)
+          }
+        }
       });
 
-      if (redirectError) {
-        // Fallback: Use confirmCardPayment with a simple card input
-        // For now, we'll use a simpler approach - just confirm with the client secret
-        // In production, you'd use Stripe Elements for card input
-        
-        // Step 3: Confirm payment (simplified - in production use Stripe Elements)
-        const { error: confirmError, paymentIntent } = await stripe.confirmCardPayment(
-          orderResponse.paymentIntent.client_secret,
-          {
-            payment_method: {
-              card: {
-                number: cardData.cardNumber.replace(/\s/g, ''),
-                exp_month: parseInt(cardData.cardExpiry.split('/')[0]),
-                exp_year: parseInt('20' + cardData.cardExpiry.split('/')[1]),
-                cvc: cardData.cardCVV
-              },
-              billing_details: {
-                name: `${formData.firstName} ${formData.lastName}`,
-                email: formData.email,
-                phone: formData.phone,
-                address: {
-                  line1: formData.street,
-                  city: formData.city,
-                  state: formData.state,
-                  postal_code: formData.zip,
-                  country: formData.country
-                }
-              }
-            }
-          }
-        );
+      if (pmError) {
+        setError(`Payment method creation failed: ${pmError.message}`);
+        toast.error(`Payment failed: ${pmError.message}`);
+        setLoading(false);
+        return;
+      }
 
-        if (confirmError) {
-          setError(`Payment failed: ${confirmError.message}`);
-          toast.error(`Payment failed: ${confirmError.message}`);
-          setLoading(false);
-          return;
+      if (!paymentMethod) {
+        setError('Failed to create payment method. Please try again.');
+        toast.error('Failed to create payment method');
+        setLoading(false);
+        return;
+      }
+
+      // Step 4: Confirm payment with the PaymentMethod
+      const { error: confirmError, paymentIntent } = await stripe.confirmCardPayment(
+        orderResponse.paymentIntent.client_secret,
+        {
+          payment_method: paymentMethod.id
         }
+      );
 
-        // Step 4: Verify payment on backend
-        if (paymentIntent && paymentIntent.status === 'succeeded') {
-          const verifyResponse = await postMethod({
-            url: '/order/confirmstripe',
-            body: {
-              payment_intent_id: paymentIntent.id,
-              payment_intent_client_secret: orderResponse.paymentIntent.client_secret
-            }
+      if (confirmError) {
+        setError(`Payment failed: ${confirmError.message}`);
+        toast.error(`Payment failed: ${confirmError.message}`);
+        setLoading(false);
+        return;
+      }
+
+      // Step 5: Verify payment on backend
+      if (paymentIntent && paymentIntent.status === 'succeeded') {
+        const verifyResponse = await postMethod({
+          url: '/order/confirmstripe',
+          body: {
+            payment_intent_id: paymentIntent.id,
+            payment_intent_client_secret: orderResponse.paymentIntent.client_secret
+          }
+        });
+
+        if (verifyResponse.success) {
+          toast.success(`🎉 Payment Successful! Order #${verifyResponse.orderNumber || orderResponse.orderNumber}`);
+          clearCart();
+          setShowCheckoutForm(false);
+          setFormData({
+            firstName: "",
+            lastName: "",
+            email: "",
+            street: "",
+            city: "",
+            state: "",
+            zip: "",
+            country: "",
+            phone: "",
           });
-
-          if (verifyResponse.success) {
-            toast.success(`🎉 Payment Successful! Order #${verifyResponse.orderNumber || orderResponse.orderNumber}`);
-            clearCart();
-            setShowCheckoutForm(false);
-            setFormData({
-              firstName: "",
-              lastName: "",
-              email: "",
-              street: "",
-              city: "",
-              state: "",
-              zip: "",
-              country: "",
-              phone: "",
-            });
-            setCardData({
-              cardNumber: "",
-              cardExpiry: "",
-              cardCVV: "",
-            });
-            setCartId(null);
-          } else {
-            setError('Payment verification failed: ' + (verifyResponse.message || 'Unknown error'));
-            toast.error('Payment verification failed');
-          }
+          setCardData({
+            cardNumber: "",
+            cardExpiry: "",
+            cardCVV: "",
+          });
+          setCartId(null);
+        } else {
+          setError('Payment verification failed: ' + (verifyResponse.message || 'Unknown error'));
+          toast.error('Payment verification failed');
         }
+      } else {
+        setError('Payment status: ' + (paymentIntent?.status || 'unknown'));
+        toast.error('Payment did not succeed');
       }
 
       setLoading(false);
@@ -903,52 +1045,65 @@ export default function CartPage({ onNavigate }: CartPageProps) {
                         <h3 className="text-lg font-semibold text-charcoal mb-4">Card Details</h3>
                       </div>
                       
-                      <input
-                        required
-                        name="cardNumber"
-                        value={cardData.cardNumber}
-                        onChange={handleCardChange}
-                        className="input md:col-span-2 border border-gold py-1.5 px-4 rounded-lg"
-                        placeholder="Card Number (e.g., 4111 1111 1111 1111)"
-                        maxLength={19}
-                      />
+                      {paymentMethod === 'STRIPE' && stripeElements ? (
+                        <>
+                          <div className="md:col-span-2">
+                            <div 
+                              id="stripe-card-element" 
+                              className="border border-gold py-3 px-4 rounded-lg bg-white"
+                              style={{ minHeight: '40px' }}
+                            />
+                            <div id="stripe-card-errors" className="text-red-600 text-sm mt-2"></div>
+                          </div>
+                          <div className="md:col-span-2 p-3 bg-gold/5 rounded-lg text-xs text-charcoal/70">
+                            <p className="font-medium mb-1">Test Cards (Stripe Test Mode):</p>
+                            <p>• Success: 4242 4242 4242 4242</p>
+                            <p>• Decline: 4000 0000 0000 0002</p>
+                            <p>• CVV: Any 3 digits | Expiry: Any future date</p>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <input
+                            required
+                            name="cardNumber"
+                            value={cardData.cardNumber}
+                            onChange={handleCardChange}
+                            className="input md:col-span-2 border border-gold py-1.5 px-4 rounded-lg"
+                            placeholder="Card Number (e.g., 4111 1111 1111 1111)"
+                            maxLength={19}
+                          />
 
-                      <input
-                        required
-                        name="cardExpiry"
-                        value={cardData.cardExpiry}
-                        onChange={handleCardChange}
-                        className="input border border-gold py-1.5 px-4 rounded-lg"
-                        placeholder="MM/YY"
-                        maxLength={5}
-                      />
+                          <input
+                            required
+                            name="cardExpiry"
+                            value={cardData.cardExpiry}
+                            onChange={handleCardChange}
+                            className="input border border-gold py-1.5 px-4 rounded-lg"
+                            placeholder="MM/YY"
+                            maxLength={5}
+                          />
 
-                      <input
-                        required
-                        name="cardCVV"
-                        value={cardData.cardCVV}
-                        onChange={handleCardChange}
-                        className="input border border-gold py-1.5 px-4 rounded-lg"
-                        placeholder="CVV"
-                        maxLength={4}
-                        type="password"
-                      />
+                          <input
+                            required
+                            name="cardCVV"
+                            value={cardData.cardCVV}
+                            onChange={handleCardChange}
+                            className="input border border-gold py-1.5 px-4 rounded-lg"
+                            placeholder="CVV"
+                            maxLength={4}
+                            type="password"
+                          />
 
-                      {paymentMethod === 'AUTHORIZE_NET' && (
-                        <div className="md:col-span-2 p-3 bg-gold/5 rounded-lg text-xs text-charcoal/70">
-                          <p className="font-medium mb-1">Test Cards (Sandbox Mode):</p>
-                          <p>• Approved: 4111 1111 1111 1111</p>
-                          <p>• Declined: 4222 2222 2222 2220</p>
-                          <p>• CVV: Any 3 digits | Expiry: Any future date (MM/YY)</p>
-                        </div>
-                      )}
-                      {paymentMethod === 'STRIPE' && (
-                        <div className="md:col-span-2 p-3 bg-gold/5 rounded-lg text-xs text-charcoal/70">
-                          <p className="font-medium mb-1">Test Cards (Stripe Test Mode):</p>
-                          <p>• Success: 4242 4242 4242 4242</p>
-                          <p>• Decline: 4000 0000 0000 0002</p>
-                          <p>• CVV: Any 3 digits | Expiry: Any future date (MM/YY)</p>
-                        </div>
+                          {paymentMethod === 'AUTHORIZE_NET' && (
+                            <div className="md:col-span-2 p-3 bg-gold/5 rounded-lg text-xs text-charcoal/70">
+                              <p className="font-medium mb-1">Test Cards (Sandbox Mode):</p>
+                              <p>• Approved: 4111 1111 1111 1111</p>
+                              <p>• Declined: 4222 2222 2222 2220</p>
+                              <p>• CVV: Any 3 digits | Expiry: Any future date (MM/YY)</p>
+                            </div>
+                          )}
+                        </>
                       )}
                     </>
                   )}

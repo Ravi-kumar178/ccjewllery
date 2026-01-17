@@ -101,7 +101,7 @@ export default function CartPage({ onNavigate }: CartPageProps) {
   const [showCheckoutForm, setShowCheckoutForm] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'COD' | 'AUTHORIZE_NET' | 'RAZORPAY' | 'STRIPE'>('COD');
+  const [paymentMethod, setPaymentMethod] = useState<'COD' | 'AUTHORIZE_NET' | 'RAZORPAY' | 'STRIPE'>('AUTHORIZE_NET');
   const [cartId, setCartId] = useState<string | null>(null);
   const [stripeLoaded, setStripeLoaded] = useState(false);
   const [stripeElements, setStripeElements] = useState<any>(null);
@@ -881,22 +881,7 @@ export default function CartPage({ onNavigate }: CartPageProps) {
                   <label className="block text-sm font-medium text-charcoal mb-3">
                     Payment Method
                   </label>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod('COD')}
-                      className={`p-4 rounded-lg border-2 transition-all flex flex-col items-center gap-2 ${
-                        paymentMethod === 'COD'
-                          ? 'border-gold bg-gold/10'
-                          : 'border-charcoal/20 hover:border-gold/50'
-                      }`}
-                    >
-                      <Wallet className="w-6 h-6" />
-                      <div className="text-center">
-                        <div className="font-semibold text-charcoal text-sm">COD</div>
-                        <div className="text-xs text-charcoal/60">Pay on delivery</div>
-                      </div>
-                    </button>
+                  <div className="grid grid-cols-2 gap-4">
                     <button
                       type="button"
                       onClick={() => setPaymentMethod('AUTHORIZE_NET')}
@@ -914,21 +899,6 @@ export default function CartPage({ onNavigate }: CartPageProps) {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setPaymentMethod('RAZORPAY')}
-                      className={`p-4 rounded-lg border-2 transition-all flex flex-col items-center gap-2 ${
-                        paymentMethod === 'RAZORPAY'
-                          ? 'border-gold bg-gold/10'
-                          : 'border-charcoal/20 hover:border-gold/50'
-                      }`}
-                    >
-                      <Smartphone className="w-6 h-6" />
-                      <div className="text-center">
-                        <div className="font-semibold text-charcoal text-sm">Razorpay</div>
-                        <div className="text-xs text-charcoal/60">UPI / Cards / Wallets</div>
-                      </div>
-                    </button>
-                    <button
-                      type="button"
                       onClick={() => setPaymentMethod('STRIPE')}
                       className={`p-4 rounded-lg border-2 transition-all flex flex-col items-center gap-2 ${
                         paymentMethod === 'STRIPE'
@@ -936,182 +906,179 @@ export default function CartPage({ onNavigate }: CartPageProps) {
                           : 'border-charcoal/20 hover:border-gold/50'
                       }`}
                     >
-                      <Zap className="w-6 h-6" />
+                      <CreditCard className="w-6 h-6" />
                       <div className="text-center">
-                        <div className="font-semibold text-charcoal text-sm">Stripe</div>
-                        <div className="text-xs text-charcoal/60">Cards / Apple Pay</div>
+                        <div className="font-semibold text-charcoal text-sm">Card</div>
+                        <div className="text-xs text-charcoal/60">Stripe</div>
                       </div>
                     </button>
                   </div>
-                </div>
+                  <form 
+                  className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4" 
+                  onSubmit={(e) => { e.preventDefault(); handlePlaceOrder(); }}>
+                    {/** FIRST NAME */}
+                    <input
+                      required
+                      name="firstName"
+                      value={formData.firstName}
+                      onChange={handleChange}
+                      className="input border border-gold py-1.5 px-4 rounded-lg"
+                      placeholder="First Name"
+                    />
 
-                {/* FORM STATE */}
-                <form className="grid grid-cols-1 md:grid-cols-2 gap-4" onSubmit={(e) => { e.preventDefault(); handlePlaceOrder(); }}>
-                  {/** FIRST NAME */}
-                  <input
-                    required
-                    name="firstName"
-                    value={formData.firstName}
-                    onChange={handleChange}
-                    className="input border border-gold py-1.5 px-4 rounded-lg"
-                    placeholder="First Name"
-                  />
+                    {/** LAST NAME */}
+                    <input
+                      required
+                      name="lastName"
+                      value={formData.lastName}
+                      onChange={handleChange}
+                      className="input border border-gold py-1.5 px-4 rounded-lg"
+                      placeholder="Last Name"
+                    />
 
-                  {/** LAST NAME */}
-                  <input
-                    required
-                    name="lastName"
-                    value={formData.lastName}
-                    onChange={handleChange}
-                    className="input border border-gold py-1.5 px-4 rounded-lg"
-                    placeholder="Last Name"
-                  />
+                    {/** EMAIL */}
+                    <input
+                      required
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      className="input md:col-span-2 border border-gold py-1.5 px-4 rounded-lg"
+                      placeholder="Email Address"
+                    />
 
-                  {/** EMAIL */}
-                  <input
-                    required
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    className="input md:col-span-2 border border-gold py-1.5 px-4 rounded-lg"
-                    placeholder="Email Address"
-                  />
+                    {/** STREET */}
+                    <input
+                      required
+                      name="street"
+                      value={formData.street}
+                      onChange={handleChange}
+                      className="input md:col-span-2 border border-gold py-1.5 px-4 rounded-lg"
+                      placeholder="Street"
+                    />
 
-                  {/** STREET */}
-                  <input
-                    required
-                    name="street"
-                    value={formData.street}
-                    onChange={handleChange}
-                    className="input md:col-span-2 border border-gold py-1.5 px-4 rounded-lg"
-                    placeholder="Street"
-                  />
+                    {/** CITY */}
+                    <input
+                      required
+                      name="city"
+                      value={formData.city}
+                      onChange={handleChange}
+                      className="input border border-gold py-1.5 px-4 rounded-lg"
+                      placeholder="City"
+                    />
 
-                  {/** CITY */}
-                  <input
-                    required
-                    name="city"
-                    value={formData.city}
-                    onChange={handleChange}
-                    className="input border border-gold py-1.5 px-4 rounded-lg"
-                    placeholder="City"
-                  />
+                    {/** STATE */}
+                    <input
+                      required
+                      name="state"
+                      value={formData.state}
+                      onChange={handleChange}
+                      className="input border border-gold py-1.5 px-4 rounded-lg"
+                      placeholder="State"
+                    />
 
-                  {/** STATE */}
-                  <input
-                    required
-                    name="state"
-                    value={formData.state}
-                    onChange={handleChange}
-                    className="input border border-gold py-1.5 px-4 rounded-lg"
-                    placeholder="State"
-                  />
+                    {/** ZIP */}
+                    <input
+                      required
+                      name="zip"
+                      value={formData.zip}
+                      onChange={handleChange}
+                      className="input border border-gold py-1.5 px-4 rounded-lg"
+                      placeholder="ZIP Code"
+                    />
 
-                  {/** ZIP */}
-                  <input
-                    required
-                    name="zip"
-                    value={formData.zip}
-                    onChange={handleChange}
-                    className="input border border-gold py-1.5 px-4 rounded-lg"
-                    placeholder="ZIP Code"
-                  />
+                    {/** COUNTRY */}
+                    <input
+                      required
+                      name="country"
+                      value={formData.country}
+                      onChange={handleChange}
+                      className="input border border-gold py-1.5 px-4 rounded-lg"
+                      placeholder="Country"
+                    />
 
-                  {/** COUNTRY */}
-                  <input
-                    required
-                    name="country"
-                    value={formData.country}
-                    onChange={handleChange}
-                    className="input border border-gold py-1.5 px-4 rounded-lg"
-                    placeholder="Country"
-                  />
+                    {/** PHONE */}
+                    <input
+                      required
+                      name="phone"
+                      value={formData.phone}
+                      onChange={handleChange}
+                      className="input md:col-span-2 border border-gold py-1.5 px-4 rounded-lg"
+                      placeholder="Phone Number"
+                    />
 
-                  {/** PHONE */}
-                  <input
-                    required
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleChange}
-                    className="input md:col-span-2 border border-gold py-1.5 px-4 rounded-lg"
-                    placeholder="Phone Number"
-                  />
-
-                  {/* CARD FIELDS - Show for Authorize.Net and Stripe */}
-                  {(paymentMethod === 'AUTHORIZE_NET' || paymentMethod === 'STRIPE') && (
-                    <>
-                      <div className="md:col-span-2 border-t border-gold/20 pt-4 mt-2">
-                        <h3 className="text-lg font-semibold text-charcoal mb-4">Card Details</h3>
-                      </div>
-                      
-                      {paymentMethod === 'STRIPE' && stripeElements ? (
-                        <>
-                          <div className="md:col-span-2">
-                            <div 
-                              id="stripe-card-element" 
-                              className="border border-gold py-3 px-4 rounded-lg bg-white"
-                              style={{ minHeight: '40px' }}
+                    {/* CARD FIELDS - Show for Authorize.Net and Stripe */}
+                    {(paymentMethod === 'AUTHORIZE_NET' || paymentMethod === 'STRIPE') && (
+                      <>
+                        <div className="md:col-span-2 border-t border-gold/20 pt-4 mt-2">
+                          <h3 className="text-lg font-semibold text-charcoal mb-4">Card Details</h3>
+                        </div>
+                        
+                        {paymentMethod === 'STRIPE' && stripeElements ? (
+                          <>
+                            <div className="md:col-span-2">
+                              <div 
+                                id="stripe-card-element" 
+                                className="border border-gold py-3 px-4 rounded-lg bg-white"
+                                style={{ minHeight: '40px' }}
+                              />
+                              <div id="stripe-card-errors" className="text-red-600 text-sm mt-2"></div>
+                            </div>
+                            <div className="md:col-span-2 p-3 bg-gold/5 rounded-lg text-xs text-charcoal/70">
+                              <p className="font-medium mb-1">Test Cards (Stripe Test Mode):</p>
+                              <p>• Success: 4242 4242 4242 4242</p>
+                              <p>• Decline: 4000 0000 0000 0002</p>
+                              <p>• CVV: Any 3 digits | Expiry: Any future date</p>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <input
+                              required
+                              name="cardNumber"
+                              value={cardData.cardNumber}
+                              onChange={handleCardChange}
+                              className="input md:col-span-2 border border-gold py-1.5 px-4 rounded-lg"
+                              placeholder="Card Number (e.g., 4111 1111 1111 1111)"
+                              maxLength={19}
                             />
-                            <div id="stripe-card-errors" className="text-red-600 text-sm mt-2"></div>
-                          </div>
-                          <div className="md:col-span-2 p-3 bg-gold/5 rounded-lg text-xs text-charcoal/70">
-                            <p className="font-medium mb-1">Test Cards (Stripe Test Mode):</p>
-                            <p>• Success: 4242 4242 4242 4242</p>
-                            <p>• Decline: 4000 0000 0000 0002</p>
-                            <p>• CVV: Any 3 digits | Expiry: Any future date</p>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <input
-                            required
-                            name="cardNumber"
-                            value={cardData.cardNumber}
-                            onChange={handleCardChange}
-                            className="input md:col-span-2 border border-gold py-1.5 px-4 rounded-lg"
-                            placeholder="Card Number (e.g., 4111 1111 1111 1111)"
-                            maxLength={19}
-                          />
 
-                          <input
-                            required
-                            name="cardExpiry"
-                            value={cardData.cardExpiry}
-                            onChange={handleCardChange}
-                            className="input border border-gold py-1.5 px-4 rounded-lg"
-                            placeholder="MM/YY"
-                            maxLength={5}
-                          />
+                            <input
+                              required
+                              name="cardExpiry"
+                              value={cardData.cardExpiry}
+                              onChange={handleCardChange}
+                              className="input border border-gold py-1.5 px-4 rounded-lg"
+                              placeholder="MM/YY"
+                              maxLength={5}
+                            />
 
-                          <input
-                            required
-                            name="cardCVV"
-                            value={cardData.cardCVV}
-                            onChange={handleCardChange}
-                            className="input border border-gold py-1.5 px-4 rounded-lg"
-                            placeholder="CVV"
-                            maxLength={4}
-                            type="password"
-                          />
+                            <input
+                              required
+                              name="cardCVV"
+                              value={cardData.cardCVV}
+                              onChange={handleCardChange}
+                              className="input border border-gold py-1.5 px-4 rounded-lg"
+                              placeholder="CVV"
+                              maxLength={4}
+                              type="password"
+                            />
 
-                          {paymentMethod === 'AUTHORIZE_NET' && (
                             <div className="md:col-span-2 p-3 bg-gold/5 rounded-lg text-xs text-charcoal/70">
                               <p className="font-medium mb-1">Test Cards (Sandbox Mode):</p>
                               <p>• Approved: 4111 1111 1111 1111</p>
                               <p>• Declined: 4222 2222 2222 2220</p>
                               <p>• CVV: Any 3 digits | Expiry: Any future date (MM/YY)</p>
                             </div>
-                          )}
                         </>
-                      )}
-                    </>
-                  )}
-                </form>
-              </div>
+                        )}
+                      </>
+                    )}
+                  </form>
+                </div>
+              </div>      
             )}
-
-
+            
           </div>
 
           {/* RIGHT SIDE — ORDER SUMMARY */}

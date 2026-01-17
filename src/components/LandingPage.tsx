@@ -28,7 +28,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
             price: p.price || 0,
             category: p.category || '',
             image_url: p.image && Array.isArray(p.image) && p.image.length > 0 
-              ? p.image[0] 
+              ? p.image 
               : 'https://via.placeholder.com/400', // Fallback image
             stock_count: 10, // Default
             in_stock: true,

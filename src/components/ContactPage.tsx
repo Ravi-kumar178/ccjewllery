@@ -377,7 +377,7 @@ function StoreInfoSection() {
     {
       icon: Phone,
       title: "Phone",
-      value: "+91 9876543210",
+      value: "+1 (510) 365 8774",
     },
     {
       icon: Mail,
@@ -389,9 +389,7 @@ function StoreInfoSection() {
       title: "Location",
       value: (
         <>
-          Crystal Casting Studio <br />
-          Patna, Bihar — 800001 <br />
-          India
+          California, USA
         </>
       ),
     },
@@ -451,7 +449,7 @@ function MapSection() {
 
         {/* <div className="border border-charcoal/10 rounded-xl overflow-hidden">
           <iframe
-            src="https://maps.google.com/maps?q=Patna,%20Bihar&t=&z=13&ie=UTF8&iwloc=&output=embed"
+            src="https://maps.google.com/maps?q=California,%20USA&t=&z=10&ie=UTF8&iwloc=&output=embed"
             className="w-full h-[400px]"
             loading="lazy"
           ></iframe>

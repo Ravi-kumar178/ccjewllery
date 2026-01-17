@@ -3,8 +3,10 @@ import { Search, X, ShoppingCart, Heart, Share2 } from 'lucide-react';
 import ProductCard from './ProductCard';
 import { useCart } from '../contexts/CartContext';
 import Footer from './Footer';
-import { allProducts as localProducts, categories, Product } from '../data/products';
+import { categories, Product } from '../data/products';
 import { getMethod } from '../api/api';
+import Slider from "react-slick";
+
 
 interface StorePageProps {
   onNavigate: (page: string) => void;
@@ -29,7 +31,7 @@ export default function StorePage({ onNavigate }: StorePageProps) {
             description: p.description,
             price: p.price,
             category: p.category,
-            image_url: p.image && p.image.length > 0 ? p.image[0] : '',
+            image_url: p.image && p.image.length > 0 ? p.image : '',
             stock_count: 10, // Default if not in backend
             in_stock: true,
             subCategory: p.subCategory,
@@ -40,12 +42,9 @@ export default function StorePage({ onNavigate }: StorePageProps) {
         } else {
           // Fallback to local products if backend fails
           console.warn('Backend products not available, using local products');
-          setAllProducts(localProducts);
         }
       } catch (error) {
         console.error("Failed to fetch products from backend:", error);
-        // Fallback to local products
-        setAllProducts(localProducts);
       } finally {
         setLoading(false);
       }
@@ -175,6 +174,39 @@ export default function StorePage({ onNavigate }: StorePageProps) {
   );
 }
 
+function NextArrow(props: any) {
+  const { className, style, onClick } = props;
+  return (
+    <button
+      className="absolute right-2 top-1/2 -translate-y-1/2 z-10 
+                 bg-white/90 hover:bg-gold hover:text-white
+                 w-9 h-9 rounded-full shadow-md
+                 flex items-center justify-center transition"
+      onClick={onClick}
+      type="button"
+    >
+      ❯
+    </button>
+  );
+}
+
+function PrevArrow(props: any) {
+  const { className, style, onClick } = props;
+  return (
+    <button
+      className="absolute left-2 top-1/2 -translate-y-1/2 z-10 
+                 bg-white/90 hover:bg-gold hover:text-white
+                 w-9 h-9 rounded-full shadow-md
+                 flex items-center justify-center transition"
+      onClick={onClick}
+      type="button"
+    >
+      ❮
+    </button>
+  );
+}
+
+
 function ProductQuickView({ product, onClose }: { product: Product; onClose: () => void }) {
   const { addItem } = useCart();
   const [showSuccess, setShowSuccess] = useState(false);
@@ -184,7 +216,7 @@ function ProductQuickView({ product, onClose }: { product: Product; onClose: () 
       id: product.id,
       name: product.name,
       price: product.price,
-      image_url: product.image_url,
+      image_url: product.image_url[0],
     });
     setShowSuccess(true);
     setTimeout(() => setShowSuccess(false), 2000);
@@ -203,16 +235,35 @@ function ProductQuickView({ product, onClose }: { product: Product; onClose: () 
     }
   };
 
+  const sliderSettings = {
+    dots: true,
+    // arrows: true,
+    infinite: true,
+    speed: 500,
+    slidesToShow: 1,
+    slidesToScroll: 1,
+    adaptiveHeight: true,
+    nextArrow: <NextArrow />,
+    prevArrow: <PrevArrow />,
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
       <div className="bg-white rounded-sm max-w-4xl w-full max-h-[90vh] overflow-y-auto animate-scale-in">
         <div className="grid md:grid-cols-2 gap-8 p-8">
           <div className="relative">
-            <img
-              src={product.image_url}
-              alt={product.name}
-              className="w-full h-96 object-cover"
-            />
+            <Slider {...sliderSettings} className="product-slider">
+              {product.image_url.map((img, index) => (
+                <div key={index}>
+                  <img
+                    src={img}
+                    alt={`${product.name} ${index + 1}`}
+                    className="w-full h-96 object-cover"
+                  />
+                </div>
+              ))}
+            </Slider>
+
             <button
               onClick={onClose}
               className="absolute top-4 right-4 p-2 bg-white hover:bg-gold hover:text-white transition-colors"

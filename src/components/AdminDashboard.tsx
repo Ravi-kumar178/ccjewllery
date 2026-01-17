@@ -10,7 +10,7 @@ import {
   ShoppingCart,
   Eye,
   CircleFadingPlus,
-  Trash2
+  Trash2,
 } from 'lucide-react';
 import { /* allProducts, */ Order, updatedProduct } from '../data/products';
 import Navbar from './Navbar';
@@ -383,11 +383,13 @@ function OrdersView() {
   }, []);
 
  
-
+  useEffect(()=>{
+    console.log(orders);
+  },[]);
 
     const getStatusColor = (status: Order["status"]) => {
       switch (status) {
-        case 'Order Placed': return 'bg-gray-100 text-gray-700';
+        case 'Order Placed': return  'bg-gray-100 text-gray-700';
         case 'Processing':    return 'bg-yellow-50 text-yellow-700';
         case 'Shipped':       return 'bg-blue-50 text-blue-700';
         case 'Delivered':     return 'bg-green-50 text-green-700';
@@ -451,7 +453,7 @@ function OrdersView() {
                   <td className="px-4 py-3 text-xs font-light text-charcoal">{order._id}</td>
                   <td className="px-4 py-3 text-xs text-charcoal/80">{order?.firstName + " "+ order?.lastName}</td>
                   <td className="px-4 py-3 text-xs text-charcoal/60"> {order.items?.reduce((sum, item) => sum + item.quantity, 0)}</td>
-                  <td className="px-4 py-3 text-xs font-light text-gold">${order?.total || 0}</td>
+                  <td className="px-4 py-3 text-xs font-light text-gold">${order?.amount}</td>
                   <td className="px-4 py-3">
                     <select
                      value={order.status}

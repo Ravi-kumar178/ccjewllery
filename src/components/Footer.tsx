@@ -1,3 +1,5 @@
+import { Facebook, Instagram } from "lucide-react";
+
 interface FooterProps {
   onNavigate: (page: string) => void;
 }
@@ -12,6 +14,29 @@ export default function Footer({ onNavigate }: FooterProps) {
             <p className="text-white/60 text-xs font-light leading-relaxed">
               Luxury jewelry crafted with passion and precision since 2010.
             </p>
+            {/* Add social media icon */}
+            <div className="flex items-center gap-4 mt-4">
+              <a
+                href="https://www.instagram.com/ccjeweler/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-white/60 hover:text-gold transition-colors"
+                aria-label="Instagram"
+              >
+                <Instagram className="w-5 h-5" />
+              </a>
+
+              <a
+                href="https://www.facebook.com/profile.php?id=61579016267257"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-white/60 hover:text-gold transition-colors"
+                aria-label="Facebook"
+              >
+                <Facebook className="w-5 h-5" />
+              </a>
+            </div>
+
           </div>
 
           <div>

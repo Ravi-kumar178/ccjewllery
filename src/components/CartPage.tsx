@@ -105,7 +105,9 @@ export default function CartPage({ onNavigate }: CartPageProps) {
   const [cartId, setCartId] = useState<string | null>(null);
   const [stripeLoaded, setStripeLoaded] = useState(false);
   const [stripeElements, setStripeElements] = useState<any>(null);
-  const [cardElement, setCardElement] = useState<any>(null);
+  const [paymentElement, setPaymentElement] = useState<any>(null);
+  const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null);
+  const [stripeLoading, setStripeLoading] = useState(false);
 
   const [formData, setFormData] = useState({
       firstName: "",
@@ -158,7 +160,7 @@ export default function CartPage({ onNavigate }: CartPageProps) {
     }
   };
 
-  // Check if Stripe.js is loaded and initialize Elements
+  // Check if Stripe.js is loaded
   useEffect(() => {
     const checkStripe = () => {
       if (typeof window.Stripe !== 'undefined') {
@@ -166,36 +168,8 @@ export default function CartPage({ onNavigate }: CartPageProps) {
         const STRIPE_PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
         if (STRIPE_PUBLISHABLE_KEY) {
           const stripe = window.Stripe(STRIPE_PUBLISHABLE_KEY);
-          const elements = stripe.elements();
-          setStripeElements({ stripe, elements });
-          
-          // Create card element when Elements is ready
-          const cardElement = elements.create('card', {
-            style: {
-              base: {
-                fontSize: '16px',
-                color: '#2c2c2c',
-                fontFamily: 'system-ui, -apple-system, sans-serif',
-                '::placeholder': {
-                  color: '#aab7c4',
-                },
-              },
-              invalid: {
-                color: '#dc2626',
-                iconColor: '#dc2626',
-              },
-            },
-          });
-          
-          // Handle real-time validation errors
-          cardElement.on('change', ({error}: any) => {
-            const displayError = document.getElementById('stripe-card-errors');
-            if (displayError) {
-              displayError.textContent = error ? error.message : '';
-            }
-          });
-          
-          setCardElement(cardElement);
+          // Store stripe instance - we'll initialize Elements when we have clientSecret
+          setStripeElements({ stripe, elements: null });
         }
       } else {
         // Retry after a short delay
@@ -205,21 +179,69 @@ export default function CartPage({ onNavigate }: CartPageProps) {
     checkStripe();
   }, []);
 
-  // Mount Stripe card element when it's ready and payment method is Stripe
+  // Initialize Elements and create Payment Element when client secret is available
   useEffect(() => {
-    if (cardElement && stripeElements && paymentMethod === 'STRIPE' && showCheckoutForm) {
-      const cardElementContainer = document.getElementById('stripe-card-element');
-      if (cardElementContainer && !cardElementContainer.hasChildNodes()) {
-        cardElement.mount('#stripe-card-element');
+    if (paymentMethod === 'STRIPE' && stripeElements?.stripe && stripeClientSecret && showCheckoutForm) {
+      const paymentElementContainer = document.getElementById('stripe-payment-element');
+      if (!paymentElementContainer) return;
+
+      // Destroy existing payment element if any
+      if (paymentElement) {
+        paymentElement.destroy();
+        setPaymentElement(null);
       }
-      
+
+      const { stripe } = stripeElements;
+
+      // IMPORTANT: Initialize Elements with clientSecret - this is required for Payment Element
+      const elements = stripe.elements({
+        clientSecret: stripeClientSecret, // Required for Payment Element
+        locale: 'en',
+        appearance: {
+          theme: 'stripe',
+          variables: {
+            colorPrimary: '#D4AF37',
+            colorBackground: '#ffffff',
+            colorText: '#2c2c2c',
+            colorDanger: '#dc2626',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            spacingUnit: '4px',
+            borderRadius: '8px',
+          },
+        },
+      });
+
+      // Update stripeElements with the new elements instance
+      setStripeElements({ stripe, elements });
+
+      // Create Payment Element (automatically shows: Cards, Google Pay, Apple Pay, Link)
+      // Google Pay and Apple Pay appear automatically if:
+      // 1. Enabled in Stripe Dashboard
+      // 2. Customer's browser/device supports it
+      const paymentElementInstance = elements.create('payment', {
+        layout: 'tabs' // Optional: organizes payment methods in tabs
+      });
+
+      // Mount Payment Element
+      paymentElementInstance.mount('#stripe-payment-element');
+      setPaymentElement(paymentElementInstance);
+
+      // Handle real-time validation errors
+      paymentElementInstance.on('change', ({error}: any) => {
+        const displayError = document.getElementById('stripe-payment-errors');
+        if (displayError) {
+          displayError.textContent = error ? error.message : '';
+        }
+      });
+
+      // Cleanup on unmount
       return () => {
-        if (cardElementContainer && cardElementContainer.hasChildNodes()) {
-          cardElement.unmount();
+        if (paymentElementInstance) {
+          paymentElementInstance.destroy();
         }
       };
     }
-  }, [cardElement, stripeElements, paymentMethod, showCheckoutForm]);
+  }, [paymentMethod, stripeElements?.stripe, stripeClientSecret, showCheckoutForm]);
 
   // Helper function to check if string is a valid MongoDB ObjectId
   const isValidObjectId = (id: string): boolean => {
@@ -577,33 +599,56 @@ export default function CartPage({ onNavigate }: CartPageProps) {
     }
   };
 
-  // Handle Stripe Payment
-  const handleStripePayment = async () => {
-    // Validate form fields
-    for (const key in formData) {
-      // @ts-ignore
-      if (!formData[key]?.trim()) {
-        setError("Please fill all required fields.");
-        return;
-      }
-    }
-
-    if (!stripeLoaded || typeof window.Stripe === 'undefined') {
-      setError('Stripe payment gateway not loaded. Please refresh the page and try again.');
+  // Create Stripe payment intent when Stripe payment method is selected
+  const createStripePaymentIntent = async () => {
+    if (!showCheckoutForm || paymentMethod !== 'STRIPE') {
+      console.log('Not creating payment intent - showCheckoutForm:', showCheckoutForm, 'paymentMethod:', paymentMethod);
       return;
     }
 
-    setError("");
-    setLoading(true);
+    // Validate form fields with detailed logging
+    const missingFields: string[] = [];
+    for (const key in formData) {
+      // @ts-ignore
+      const value = formData[key];
+      if (!value || !value.toString().trim()) {
+        missingFields.push(key);
+      }
+    }
+
+    if (missingFields.length > 0) {
+      console.log('Form incomplete, cannot create payment intent. Missing fields:', missingFields);
+      console.log('Current formData:', formData);
+      return; // Don't create payment intent if form is incomplete
+    }
+
+    console.log('✅ All form fields are complete:', formData);
+
+    // Don't create if already created
+    if (stripeClientSecret) {
+      console.log('Payment intent already created');
+      return;
+    }
+
+    setStripeLoading(true);
+    console.log('Creating Stripe payment intent...');
 
     try {
       // Create cart and add items if not already done
       let finalCartId = cartId;
       if (!finalCartId) {
+        console.log('Creating cart and adding items...');
         finalCartId = await createCartAndAddItems();
+        setCartId(finalCartId);
       }
 
-      // Step 1: Create Stripe payment intent on backend
+      console.log('Calling /order/stripe with:', {
+        cartId: finalCartId,
+        amount: total * 1.08,
+        country: formData.country
+      });
+
+      // Create Stripe payment intent on backend
       const orderResponse = await postMethod({
         url: '/order/stripe',
         body: {
@@ -621,70 +666,125 @@ export default function CartPage({ onNavigate }: CartPageProps) {
         }
       });
 
-      if (!orderResponse.success || !orderResponse.paymentIntent) {
-        setError(orderResponse.message || 'Failed to create payment intent. Please try again.');
-        setLoading(false);
-        return;
+      console.log('Stripe payment intent response:', orderResponse);
+      console.log('Response success:', orderResponse.success);
+      console.log('Payment intent:', orderResponse.paymentIntent);
+
+      if (orderResponse.success && orderResponse.paymentIntent && orderResponse.paymentIntent.client_secret) {
+        setStripeClientSecret(orderResponse.paymentIntent.client_secret);
+        console.log('✅ Stripe Payment Intent created successfully!');
+        console.log('✅ Client Secret:', orderResponse.paymentIntent.client_secret.substring(0, 20) + '...');
+        console.log('✅ Payment Intent ID:', orderResponse.paymentIntent.id);
+        setError(""); // Clear any previous errors
+      } else {
+        const errorMsg = orderResponse.message || 'Failed to initialize payment. Please check console for details.';
+        console.error('❌ Failed to create payment intent:', errorMsg);
+        console.error('❌ Full response:', JSON.stringify(orderResponse, null, 2));
+        setError(errorMsg);
+        toast.error(errorMsg);
       }
+    } catch (error: any) {
+      console.error('❌ Error creating Stripe payment intent:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to initialize payment';
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setStripeLoading(false);
+    }
+  };
 
-      console.log('Stripe Payment Intent created:', orderResponse);
-
-      // Step 2: Initialize Stripe with publishable key
-      const STRIPE_PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+  // Create payment intent when Stripe is selected and form is filled
+  useEffect(() => {
+    if (paymentMethod === 'STRIPE' && showCheckoutForm) {
+      // Check if form is complete
+      const isFormComplete = formData.firstName?.trim() && 
+                            formData.lastName?.trim() && 
+                            formData.email?.trim() && 
+                            formData.street?.trim() && 
+                            formData.city?.trim() && 
+                            formData.state?.trim() && 
+                            formData.zip?.trim() && 
+                            formData.country?.trim() && 
+                            formData.phone?.trim();
       
-      if (!STRIPE_PUBLISHABLE_KEY) {
-        setError('Stripe publishable key not configured. Please contact support.');
-        setLoading(false);
+      if (isFormComplete && !stripeClientSecret && !stripeLoading) {
+        console.log('✅ Form is complete, creating payment intent...');
+        // Small delay to ensure all state updates are processed
+        const timer = setTimeout(() => {
+          createStripePaymentIntent();
+        }, 500);
+        return () => clearTimeout(timer);
+      } else if (!isFormComplete) {
+        console.log('⏳ Form not complete yet. Missing fields will be shown in console if you click Initialize Payment.');
+      }
+    } else if (paymentMethod !== 'STRIPE') {
+      // Clear client secret when switching away from Stripe
+      if (stripeClientSecret) {
+        setStripeClientSecret(null);
+      }
+      if (paymentElement) {
+        paymentElement.destroy();
+        setPaymentElement(null);
+      }
+      setStripeLoading(false);
+    }
+  }, [paymentMethod, showCheckoutForm, formData.firstName, formData.lastName, formData.email, formData.street, formData.city, formData.state, formData.zip, formData.country, formData.phone]);
+
+  // Handle Stripe Payment
+  const handleStripePayment = async () => {
+    // Validate form fields
+    for (const key in formData) {
+      // @ts-ignore
+      if (!formData[key]?.trim()) {
+        setError("Please fill all required fields.");
         return;
       }
+    }
 
-      if (!stripeElements || !cardElement) {
-        setError('Stripe Elements not initialized. Please refresh the page.');
-        setLoading(false);
-        return;
-      }
+    if (!stripeLoaded || typeof window.Stripe === 'undefined') {
+      setError('Stripe payment gateway not loaded. Please refresh the page and try again.');
+      return;
+    }
 
-      const { stripe } = stripeElements;
-      
-      // Step 3: Create PaymentMethod using Stripe Elements (required by Stripe)
-      const { error: pmError, paymentMethod } = await stripe.createPaymentMethod({
-        type: 'card',
-        card: cardElement,
-        billing_details: {
-          name: `${formData.firstName} ${formData.lastName}`,
-          email: formData.email,
-          phone: formData.phone,
-          address: {
-            line1: formData.street,
-            city: formData.city,
-            state: formData.state,
-            postal_code: formData.zip,
-            country: getCountryCode(formData.country)
+    if (!stripeClientSecret) {
+      setError('Payment intent not created. Please wait a moment and try again.');
+      return;
+    }
+
+    if (!paymentElement) {
+      setError('Payment element not loaded. Please refresh the page.');
+      return;
+    }
+
+    setError("");
+    setLoading(true);
+
+    try {
+      const { stripe, elements } = stripeElements;
+
+      // Confirm payment using Payment Element
+      const { error: confirmError, paymentIntent } = await stripe.confirmPayment({
+        elements,
+        clientSecret: stripeClientSecret,
+        confirmParams: {
+          return_url: window.location.origin + '/order-success',
+          payment_method_data: {
+            billing_details: {
+              name: `${formData.firstName} ${formData.lastName}`,
+              email: formData.email,
+              phone: formData.phone,
+              address: {
+                line1: formData.street,
+                city: formData.city,
+                state: formData.state,
+                postal_code: formData.zip,
+                country: getCountryCode(formData.country)
+              }
+            }
           }
-        }
+        },
+        redirect: 'if_required' // Only redirect if required (e.g., 3D Secure)
       });
-
-      if (pmError) {
-        setError(`Payment method creation failed: ${pmError.message}`);
-        toast.error(`Payment failed: ${pmError.message}`);
-        setLoading(false);
-        return;
-      }
-
-      if (!paymentMethod) {
-        setError('Failed to create payment method. Please try again.');
-        toast.error('Failed to create payment method');
-        setLoading(false);
-        return;
-      }
-
-      // Step 4: Confirm payment with the PaymentMethod
-      const { error: confirmError, paymentIntent } = await stripe.confirmCardPayment(
-        orderResponse.paymentIntent.client_secret,
-        {
-          payment_method: paymentMethod.id
-        }
-      );
 
       if (confirmError) {
         setError(`Payment failed: ${confirmError.message}`);
@@ -693,18 +793,18 @@ export default function CartPage({ onNavigate }: CartPageProps) {
         return;
       }
 
-      // Step 5: Verify payment on backend
+      // Step 2: Verify payment on backend
       if (paymentIntent && paymentIntent.status === 'succeeded') {
         const verifyResponse = await postMethod({
           url: '/order/confirmstripe',
           body: {
             payment_intent_id: paymentIntent.id,
-            payment_intent_client_secret: orderResponse.paymentIntent.client_secret
+            payment_intent_client_secret: stripeClientSecret
           }
         });
 
         if (verifyResponse.success) {
-          toast.success(`🎉 Payment Successful! Order #${verifyResponse.orderNumber || orderResponse.orderNumber}`);
+          toast.success(`🎉 Payment Successful! Order #${verifyResponse.orderNumber}`);
           clearCart();
           setShowCheckoutForm(false);
           setFormData({
@@ -724,6 +824,11 @@ export default function CartPage({ onNavigate }: CartPageProps) {
             cardCVV: "",
           });
           setCartId(null);
+          setStripeClientSecret(null);
+          if (paymentElement) {
+            paymentElement.destroy();
+            setPaymentElement(null);
+          }
         } else {
           setError('Payment verification failed: ' + (verifyResponse.message || 'Unknown error'));
           toast.error('Payment verification failed');
@@ -899,7 +1004,26 @@ export default function CartPage({ onNavigate }: CartPageProps) {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setPaymentMethod('STRIPE')}
+                      onClick={() => {
+                        setPaymentMethod('STRIPE');
+                        // Clear existing payment intent when switching to Stripe
+                        if (stripeClientSecret) {
+                          setStripeClientSecret(null);
+                        }
+                        if (paymentElement) {
+                          paymentElement.destroy();
+                          setPaymentElement(null);
+                        }
+                        // Trigger payment intent creation if form is complete
+                        setTimeout(() => {
+                          const isFormComplete = formData.firstName && formData.lastName && formData.email && 
+                                                formData.street && formData.city && formData.state && 
+                                                formData.zip && formData.country && formData.phone;
+                          if (isFormComplete) {
+                            createStripePaymentIntent();
+                          }
+                        }, 100);
+                      }}
                       className={`p-4 rounded-lg border-2 transition-all flex flex-col items-center gap-2 ${
                         paymentMethod === 'STRIPE'
                           ? 'border-gold bg-gold/10'
@@ -1007,29 +1131,96 @@ export default function CartPage({ onNavigate }: CartPageProps) {
                       placeholder="Phone Number"
                     />
 
-                    {/* CARD FIELDS - Show for Authorize.Net and Stripe */}
+                    {/* PAYMENT FIELDS - Show for Authorize.Net and Stripe */}
                     {(paymentMethod === 'AUTHORIZE_NET' || paymentMethod === 'STRIPE') && (
                       <>
                         <div className="md:col-span-2 border-t border-gold/20 pt-4 mt-2">
-                          <h3 className="text-lg font-semibold text-charcoal mb-4">Card Details</h3>
+                          <h3 className="text-lg font-semibold text-charcoal mb-4">
+                            {paymentMethod === 'STRIPE' ? 'Payment Details' : 'Card Details'}
+                          </h3>
                         </div>
                         
                         {paymentMethod === 'STRIPE' && stripeElements ? (
                           <>
-                            <div className="md:col-span-2">
-                              <div 
-                                id="stripe-card-element" 
-                                className="border border-gold py-3 px-4 rounded-lg bg-white"
-                                style={{ minHeight: '40px' }}
-                              />
-                              <div id="stripe-card-errors" className="text-red-600 text-sm mt-2"></div>
-                            </div>
-                            <div className="md:col-span-2 p-3 bg-gold/5 rounded-lg text-xs text-charcoal/70">
-                              <p className="font-medium mb-1">Test Cards (Stripe Test Mode):</p>
-                              <p>• Success: 4242 4242 4242 4242</p>
-                              <p>• Decline: 4000 0000 0000 0002</p>
-                              <p>• CVV: Any 3 digits | Expiry: Any future date</p>
-                            </div>
+                            {!stripeClientSecret ? (
+                              <div className="md:col-span-2 p-4 bg-gold/5 rounded-lg text-center text-charcoal/70">
+                                {stripeLoading ? (
+                                  <>
+                                    <p className="font-medium">Creating payment options...</p>
+                                    <p className="text-xs mt-2">Please wait</p>
+                                  </>
+                                ) : (
+                                  <>
+                                    <p>Loading payment options...</p>
+                                    <p className="text-xs mt-2">Please fill all form fields above</p>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        console.log('Manual trigger - Form data:', formData);
+                                        console.log('Manual trigger - All fields check:', {
+                                          firstName: !!formData.firstName?.trim(),
+                                          lastName: !!formData.lastName?.trim(),
+                                          email: !!formData.email?.trim(),
+                                          street: !!formData.street?.trim(),
+                                          city: !!formData.city?.trim(),
+                                          state: !!formData.state?.trim(),
+                                          zip: !!formData.zip?.trim(),
+                                          country: !!formData.country?.trim(),
+                                          phone: !!formData.phone?.trim(),
+                                        });
+                                        setError("");
+                                        createStripePaymentIntent();
+                                      }}
+                                      className="mt-3 px-4 py-2 bg-gold text-white rounded-lg text-xs hover:bg-gold/90 transition-colors"
+                                    >
+                                      Initialize Payment
+                                    </button>
+                                    {error && (
+                                      <div className="mt-3">
+                                        <p className="text-red-600 text-xs mb-2">{error}</p>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setError("");
+                                            createStripePaymentIntent();
+                                          }}
+                                          className="px-4 py-2 bg-gold text-white rounded-lg text-xs hover:bg-gold/90 transition-colors"
+                                        >
+                                          Retry
+                                        </button>
+                                      </div>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            ) : (
+                              <>
+                                <div className="md:col-span-2">
+                                  <div 
+                                    id="stripe-payment-element" 
+                                    className="border border-gold py-3 px-4 rounded-lg bg-white"
+                                    style={{ minHeight: '60px' }}
+                                  />
+                                  <div id="stripe-payment-errors" className="text-red-600 text-sm mt-2"></div>
+                                </div>
+                                <div className="md:col-span-2 p-3 bg-gold/5 rounded-lg text-xs text-charcoal/70">
+                                  <p className="font-medium mb-1">Payment Methods Available:</p>
+                                  <p>• Credit/Debit Cards (Visa, Mastercard, Amex, etc.)</p>
+                                  <p>• Google Pay (automatically shown if enabled in Stripe Dashboard)</p>
+                                  <p>• Apple Pay (automatically shown on iOS/Safari if enabled)</p>
+                                  <p className="text-xs text-charcoal/60 mt-2 italic">
+                                    Google Pay and Apple Pay appear automatically based on your device and browser.
+                                  </p>
+                                  <p className="mt-2 font-medium">Test Cards (Stripe Test Mode):</p>
+                                  <p>• Success: 4242 4242 4242 4242</p>
+                                  <p>• Decline: 4000 0000 0000 0002</p>
+                                  <p>• CVV: Any 3 digits | Expiry: Any future date</p>
+                                  <p className="text-xs text-charcoal/60 mt-2">
+                                    To enable Google Pay/Apple Pay: <a href="https://dashboard.stripe.com/settings/payment_methods" target="_blank" rel="noopener noreferrer" className="text-gold underline">Stripe Dashboard → Payment Methods</a>
+                                  </p>
+                                </div>
+                              </>
+                            )}
                           </>
                         ) : (
                           <>
@@ -1176,3 +1367,4 @@ export default function CartPage({ onNavigate }: CartPageProps) {
     </div>
   );
 }
+

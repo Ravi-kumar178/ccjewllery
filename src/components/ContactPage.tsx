@@ -377,7 +377,7 @@ function StoreInfoSection() {
     {
       icon: Phone,
       title: "Phone",
-      value: "+91 9876543210",
+      value: "+1 (510) 365 8774",
     },
     {
       icon: Mail,

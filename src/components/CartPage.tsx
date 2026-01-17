@@ -101,7 +101,7 @@ export default function CartPage({ onNavigate }: CartPageProps) {
   const [showCheckoutForm, setShowCheckoutForm] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'COD' | 'AUTHORIZE_NET' | 'RAZORPAY' | 'STRIPE'>('COD');
+  const [paymentMethod, setPaymentMethod] = useState<'COD' | 'AUTHORIZE_NET' | 'RAZORPAY' | 'STRIPE'>('AUTHORIZE_NET');
   const [cartId, setCartId] = useState<string | null>(null);
   const [stripeLoaded, setStripeLoaded] = useState(false);
   const [stripeElements, setStripeElements] = useState<any>(null);
@@ -881,7 +881,7 @@ export default function CartPage({ onNavigate }: CartPageProps) {
                   <label className="block text-sm font-medium text-charcoal mb-3">
                     Payment Method
                   </label>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
                     <button
                       type="button"
                       onClick={() => setPaymentMethod('AUTHORIZE_NET')}
@@ -914,7 +914,7 @@ export default function CartPage({ onNavigate }: CartPageProps) {
                     </button>
                   </div>
                   <form 
-                  className="grid grid-cols-1 md:grid-cols-2 gap-4" 
+                  className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4" 
                   onSubmit={(e) => { e.preventDefault(); handlePlaceOrder(); }}>
                     {/** FIRST NAME */}
                     <input

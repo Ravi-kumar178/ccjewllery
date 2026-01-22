@@ -746,13 +746,14 @@ export default function CartPage({ onNavigate }: CartPageProps) {
 
       console.log('Stripe payment intent response:', orderResponse);
       console.log('Response success:', orderResponse.success);
-      console.log('Payment intent:', orderResponse.paymentIntent);
+      console.log('Client Secret:', orderResponse.clientSecret);
+      console.log('Payment Intent ID:', orderResponse.paymentIntentId);
 
-      if (orderResponse.success && orderResponse.paymentIntent && orderResponse.paymentIntent.client_secret) {
-        setStripeClientSecret(orderResponse.paymentIntent.client_secret);
+      if (orderResponse.success && orderResponse.clientSecret) {
+        setStripeClientSecret(orderResponse.clientSecret);
         console.log('✅ Stripe Payment Intent created successfully!');
-        console.log('✅ Client Secret:', orderResponse.paymentIntent.client_secret.substring(0, 20) + '...');
-        console.log('✅ Payment Intent ID:', orderResponse.paymentIntent.id);
+        console.log('✅ Client Secret:', orderResponse.clientSecret.substring(0, 20) + '...');
+        console.log('✅ Payment Intent ID:', orderResponse.paymentIntentId);
         setError(""); // Clear any previous errors
       } else {
         const errorMsg = orderResponse.message || 'Failed to initialize payment. Please check console for details.';
@@ -887,8 +888,8 @@ export default function CartPage({ onNavigate }: CartPageProps) {
         const verifyResponse = await postMethod({
           url: '/order/confirmstripe',
           body: {
-            payment_intent_id: paymentIntent.id,
-            payment_intent_client_secret: stripeClientSecret
+            paymentIntentId: paymentIntent.id,
+            orderId: null // Will be found by paymentIntentId if not provided
           }
         });
 

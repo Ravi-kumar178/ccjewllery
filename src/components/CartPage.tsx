@@ -209,28 +209,106 @@ export default function CartPage({ onNavigate }: CartPageProps) {
             borderRadius: '8px',
           },
         },
+        // Business information for Google Pay/Apple Pay
+        business: {
+          name: 'CC Jewellery'
+        }
       });
 
       // Update stripeElements with the new elements instance
       setStripeElements({ stripe, elements });
 
-      // Create Payment Element (automatically shows: Cards, Google Pay, Apple Pay, Link)
-      // Google Pay and Apple Pay appear automatically if:
+      // Create Payment Element with explicit Google Pay support
+      // Google Pay will appear if:
       // 1. Enabled in Stripe Dashboard
       // 2. Customer's browser/device supports it
+      // 3. Payment Intent supports it (configured in backend)
       const paymentElementInstance = elements.create('payment', {
-        layout: 'tabs' // Optional: organizes payment methods in tabs
+        layout: 'tabs', // Organizes payment methods in tabs
+        paymentMethodOrder: ['google_pay', 'apple_pay', 'card', 'link'], // Prioritize Google Pay
+        wallets: {
+          applePay: 'auto', // Auto-detect Apple Pay
+          googlePay: 'auto' // Auto-detect Google Pay - will show if available
+        },
+        // Fields configuration
+        fields: {
+          billingDetails: {
+            name: 'auto',
+            email: 'auto',
+            phone: 'auto',
+            address: {
+              country: 'auto',
+              line1: 'auto',
+              city: 'auto',
+              state: 'auto',
+              postalCode: 'auto'
+            }
+          }
+        }
       });
 
       // Mount Payment Element
       paymentElementInstance.mount('#stripe-payment-element');
       setPaymentElement(paymentElementInstance);
 
-      // Handle real-time validation errors
-      paymentElementInstance.on('change', ({error}: any) => {
+      // Handle real-time validation errors and payment method changes
+      paymentElementInstance.on('change', ({error, value}: any) => {
         const displayError = document.getElementById('stripe-payment-errors');
         if (displayError) {
           displayError.textContent = error ? error.message : '';
+        }
+        
+        // Debug: Log available payment methods
+        if (value && value.type) {
+          console.log('Payment method type:', value.type);
+          console.log('Available payment methods:', value);
+        }
+      });
+      
+      // Debug: Check if Google Pay is available
+      paymentElementInstance.on('ready', () => {
+        console.log('✅ Payment Element is ready');
+        console.log('🔍 Checking Google Pay availability...');
+        console.log('📍 Browser:', navigator.userAgent);
+        console.log('🌐 User Agent includes Chrome:', navigator.userAgent.includes('Chrome'));
+        console.log('💳 Payment Intent Client Secret:', stripeClientSecret?.substring(0, 20) + '...');
+        
+        // Check if Google Pay API is available
+        if (window.PaymentRequest) {
+          console.log('✅ Payment Request API is available (required for Google Pay)');
+          const supportedMethods = [
+            { supportedMethods: 'https://google.com/pay' }
+          ];
+          const details = {
+            total: { label: 'Test', amount: { currency: 'USD', value: '1.00' } }
+          };
+          try {
+            const request = new PaymentRequest(supportedMethods, details);
+            request.canMakePayment().then(result => {
+              if (result) {
+                console.log('✅ Google Pay is available on this device!');
+              } else {
+                console.log('❌ Google Pay is NOT available - customer may not have it set up');
+              }
+            }).catch(err => {
+              console.log('⚠️ Could not check Google Pay availability:', err);
+            });
+          } catch (e) {
+            console.log('⚠️ Payment Request API error:', e);
+          }
+        } else {
+          console.log('❌ Payment Request API is NOT available - Google Pay will not work');
+          console.log('💡 Try using Chrome or Edge browser');
+        }
+      });
+      
+      // Listen for payment method changes to see what's available
+      paymentElementInstance.on('change', (event: any) => {
+        if (event.complete) {
+          console.log('💳 Payment method selected:', event.value?.type);
+        }
+        if (event.availablePaymentMethods) {
+          console.log('📋 Available payment methods:', event.availablePaymentMethods);
         }
       });
 
@@ -762,7 +840,18 @@ export default function CartPage({ onNavigate }: CartPageProps) {
     try {
       const { stripe, elements } = stripeElements;
 
-      // Confirm payment using Payment Element
+      // Step 1: Submit the Payment Element to validate and collect payment details
+      // This MUST be called before confirmPayment()
+      const { error: submitError } = await elements.submit();
+      
+      if (submitError) {
+        setError(`Payment validation failed: ${submitError.message}`);
+        toast.error(`Payment validation failed: ${submitError.message}`);
+        setLoading(false);
+        return;
+      }
+
+      // Step 2: Confirm payment using Payment Element
       const { error: confirmError, paymentIntent } = await stripe.confirmPayment({
         elements,
         clientSecret: stripeClientSecret,
@@ -1206,18 +1295,39 @@ export default function CartPage({ onNavigate }: CartPageProps) {
                                 <div className="md:col-span-2 p-3 bg-gold/5 rounded-lg text-xs text-charcoal/70">
                                   <p className="font-medium mb-1">Payment Methods Available:</p>
                                   <p>• Credit/Debit Cards (Visa, Mastercard, Amex, etc.)</p>
-                                  <p>• Google Pay (automatically shown if enabled in Stripe Dashboard)</p>
-                                  <p>• Apple Pay (automatically shown on iOS/Safari if enabled)</p>
+                                  <p>• Google Pay (automatically shown if domain is verified)</p>
+                                  <p>• Apple Pay (automatically shown on iOS/Safari if domain is verified)</p>
                                   <p className="text-xs text-charcoal/60 mt-2 italic">
-                                    Google Pay and Apple Pay appear automatically based on your device and browser.
+                                    Google Pay and Apple Pay require domain verification in Stripe Dashboard.
                                   </p>
+                                  <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
+                                    <p className="font-medium text-yellow-800 mb-1">⚠️ Domain Verification Required</p>
+                                    <p className="text-yellow-700 mb-2">
+                                      To show Google Pay, you must register your domain in Stripe Dashboard.
+                                    </p>
+                                    <p className="text-yellow-700 mb-1">
+                                      <strong>For Localhost Testing:</strong>
+                                    </p>
+                                    <p className="text-yellow-700 mb-1">
+                                      1. Use <a href="https://ngrok.com" target="_blank" className="underline font-medium">ngrok</a> or similar to create HTTPS tunnel
+                                    </p>
+                                    <p className="text-yellow-700 mb-1">
+                                      2. Register the ngrok domain in Stripe Dashboard
+                                    </p>
+                                    <p className="text-yellow-700 mb-2">
+                                      3. Access your site via the ngrok URL
+                                    </p>
+                                    <p className="text-yellow-700 mb-1">
+                                      <strong>For Production:</strong>
+                                    </p>
+                                    <p className="text-yellow-700">
+                                      Register your actual domain: <a href="https://dashboard.stripe.com/settings/payment_methods/domains" target="_blank" rel="noopener noreferrer" className="underline font-medium">Stripe Dashboard → Payment Method Domains</a>
+                                    </p>
+                                  </div>
                                   <p className="mt-2 font-medium">Test Cards (Stripe Test Mode):</p>
                                   <p>• Success: 4242 4242 4242 4242</p>
                                   <p>• Decline: 4000 0000 0000 0002</p>
                                   <p>• CVV: Any 3 digits | Expiry: Any future date</p>
-                                  <p className="text-xs text-charcoal/60 mt-2">
-                                    To enable Google Pay/Apple Pay: <a href="https://dashboard.stripe.com/settings/payment_methods" target="_blank" rel="noopener noreferrer" className="text-gold underline">Stripe Dashboard → Payment Methods</a>
-                                  </p>
                                 </div>
                               </>
                             )}

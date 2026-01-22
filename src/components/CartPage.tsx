@@ -107,6 +107,7 @@ export default function CartPage({ onNavigate }: CartPageProps) {
   const [stripeElements, setStripeElements] = useState<any>(null);
   const [paymentElement, setPaymentElement] = useState<any>(null);
   const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null);
+  const [stripeOrderId, setStripeOrderId] = useState<string | null>(null);
   const [stripeLoading, setStripeLoading] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -481,7 +482,13 @@ export default function CartPage({ onNavigate }: CartPageProps) {
       }
 
       if (response.success) {
-        toast.success(response.message || 'Order placed successfully!');
+        // Clear loading state first
+        setLoading(false);
+        // Show success toast
+        toast.success(response.message || 'Order placed successfully!', {
+          duration: 3000,
+        });
+        // Clear all state
         clearCart();
         setShowCheckoutForm(false);
         setFormData({
@@ -501,16 +508,20 @@ export default function CartPage({ onNavigate }: CartPageProps) {
           cardCVV: "",
         });
         setCartId(null);
+        // Navigate to home page after a short delay to show toast
+        setTimeout(() => {
+          onNavigate('home');
+        }, 2000);
       } else {
         setError(response.message || 'Failed to place order');
         toast.error(response.message || 'Failed to place order');
+        setLoading(false);
       }
     } catch (error: any) {
       console.error('Order placement error:', error);
       const errorMessage = error.response?.data?.message || error.message || 'An error occurred while placing your order';
       setError(errorMessage);
       toast.error(errorMessage);
-    } finally {
       setLoading(false);
     }
   };
@@ -609,7 +620,13 @@ export default function CartPage({ onNavigate }: CartPageProps) {
             });
 
             if (verifyResponse.success) {
-              toast.success(`🎉 Payment Successful! Order #${verifyResponse.orderNumber || orderResponse.orderNumber}`);
+              // Clear loading state first
+              setLoading(false);
+              // Show success toast
+              toast.success(`🎉 Payment Successful! Order #${verifyResponse.orderNumber || orderResponse.orderNumber} has been placed.`, {
+                duration: 3000,
+              });
+              // Clear all state
               clearCart();
               setShowCheckoutForm(false);
               setFormData({
@@ -624,17 +641,21 @@ export default function CartPage({ onNavigate }: CartPageProps) {
                 phone: "",
               });
               setCartId(null);
+              // Navigate to home page after a short delay to show toast
+              setTimeout(() => {
+                onNavigate('home');
+              }, 2000);
             } else {
               setError('Payment verification failed: ' + (verifyResponse.message || 'Unknown error'));
               toast.error('Payment verification failed');
+              setLoading(false);
             }
           } catch (verifyError: any) {
             console.error('Verification error:', verifyError);
             setError('Payment verification failed. Please contact support.');
             toast.error('Payment verification failed');
+            setLoading(false);
           }
-          
-          setLoading(false);
         },
         
         // Pre-fill customer details
@@ -751,6 +772,14 @@ export default function CartPage({ onNavigate }: CartPageProps) {
 
       if (orderResponse.success && orderResponse.clientSecret) {
         setStripeClientSecret(orderResponse.clientSecret);
+        // Store order ID if available (Mongoose returns _id, but JSON might have id)
+        const orderId = orderResponse.order?._id || orderResponse.order?.id;
+        if (orderId) {
+          setStripeOrderId(orderId);
+          console.log('✅ Order ID stored:', orderId);
+        } else {
+          console.warn('⚠️ Order ID not found in response:', orderResponse.order);
+        }
         console.log('✅ Stripe Payment Intent created successfully!');
         console.log('✅ Client Secret:', orderResponse.clientSecret.substring(0, 20) + '...');
         console.log('✅ Payment Intent ID:', orderResponse.paymentIntentId);
@@ -889,12 +918,23 @@ export default function CartPage({ onNavigate }: CartPageProps) {
           url: '/order/confirmstripe',
           body: {
             paymentIntentId: paymentIntent.id,
-            orderId: null // Will be found by paymentIntentId if not provided
+            orderId: stripeOrderId || null // Send stored orderId if available
           }
         });
 
         if (verifyResponse.success) {
-          toast.success(`🎉 Payment Successful! Order #${verifyResponse.orderNumber}`);
+          // Clear loading state first
+          setLoading(false);
+          // Show success toast
+          toast.success(`🎉 Payment Successful! Order #${verifyResponse.orderNumber} has been placed.`, {
+            duration: 3000,
+          });
+          // Clean up payment element
+          if (paymentElement) {
+            paymentElement.destroy();
+            setPaymentElement(null);
+          }
+          // Clear all state
           clearCart();
           setShowCheckoutForm(false);
           setFormData({
@@ -915,20 +955,21 @@ export default function CartPage({ onNavigate }: CartPageProps) {
           });
           setCartId(null);
           setStripeClientSecret(null);
-          if (paymentElement) {
-            paymentElement.destroy();
-            setPaymentElement(null);
-          }
+          setStripeOrderId(null);
+          // Navigate to home page after a short delay to show toast
+          setTimeout(() => {
+            onNavigate('home');
+          }, 2000);
         } else {
           setError('Payment verification failed: ' + (verifyResponse.message || 'Unknown error'));
           toast.error('Payment verification failed');
+          setLoading(false);
         }
       } else {
         setError('Payment status: ' + (paymentIntent?.status || 'unknown'));
         toast.error('Payment did not succeed');
+        setLoading(false);
       }
-
-      setLoading(false);
     } catch (error: any) {
       console.error('Stripe payment error:', error);
       const errorMessage = error.response?.data?.message || error.message || 'Something went wrong. Please try again.';
@@ -1099,6 +1140,7 @@ export default function CartPage({ onNavigate }: CartPageProps) {
                         // Clear existing payment intent when switching to Stripe
                         if (stripeClientSecret) {
                           setStripeClientSecret(null);
+          setStripeOrderId(null);
                         }
                         if (paymentElement) {
                           paymentElement.destroy();

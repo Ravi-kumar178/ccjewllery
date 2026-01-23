@@ -188,7 +188,12 @@ export default function CartPage({ onNavigate }: CartPageProps) {
 
       // Destroy existing payment element if any
       if (paymentElement) {
-        paymentElement.destroy();
+        try {
+          paymentElement.destroy();
+        } catch (error) {
+          // Element might already be destroyed, ignore the error
+          console.log('Payment element already destroyed:', error);
+        }
         setPaymentElement(null);
       }
 
@@ -313,10 +318,20 @@ export default function CartPage({ onNavigate }: CartPageProps) {
         }
       });
 
-      // Cleanup on unmount
+      // Cleanup on unmount - use local variable from closure
       return () => {
         if (paymentElementInstance) {
-          paymentElementInstance.destroy();
+          try {
+            paymentElementInstance.destroy();
+          } catch (error) {
+            // Element might already be destroyed, ignore the error
+            // This can happen if the element was destroyed elsewhere or component unmounted
+            console.log('Payment element cleanup - already destroyed or error:', error);
+          }
+        }
+        // Also clear state if it matches
+        if (paymentElement === paymentElementInstance) {
+          setPaymentElement(null);
         }
       };
     }
@@ -831,7 +846,12 @@ export default function CartPage({ onNavigate }: CartPageProps) {
         setStripeClientSecret(null);
       }
       if (paymentElement) {
-        paymentElement.destroy();
+        try {
+          paymentElement.destroy();
+        } catch (error) {
+          // Element might already be destroyed, ignore the error
+          console.log('Payment element already destroyed:', error);
+        }
         setPaymentElement(null);
       }
       setStripeLoading(false);
@@ -929,14 +949,19 @@ export default function CartPage({ onNavigate }: CartPageProps) {
           toast.success(`🎉 Payment Successful! Order #${verifyResponse.orderNumber} has been placed.`, {
             duration: 3000,
           });
-          // Clean up payment element
-          if (paymentElement) {
-            paymentElement.destroy();
-            setPaymentElement(null);
-          }
-          // Clear all state
+          // Clear all state first (cleanup will handle payment element destruction)
           clearCart();
           setShowCheckoutForm(false);
+          // Clean up payment element (but don't destroy if navigating - cleanup will handle it)
+          if (paymentElement) {
+            try {
+              paymentElement.destroy();
+            } catch (error) {
+              // Element might already be destroyed, ignore the error
+              console.log('Payment element already destroyed:', error);
+            }
+            setPaymentElement(null);
+          }
           setFormData({
             firstName: "",
             lastName: "",
@@ -1143,7 +1168,12 @@ export default function CartPage({ onNavigate }: CartPageProps) {
           setStripeOrderId(null);
                         }
                         if (paymentElement) {
-                          paymentElement.destroy();
+                          try {
+                            paymentElement.destroy();
+                          } catch (error) {
+                            // Element might already be destroyed, ignore the error
+                            console.log('Payment element already destroyed:', error);
+                          }
                           setPaymentElement(null);
                         }
                         // Trigger payment intent creation if form is complete

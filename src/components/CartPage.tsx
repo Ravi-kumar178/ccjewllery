@@ -720,23 +720,29 @@ export default function CartPage({ onNavigate }: CartPageProps) {
       return;
     }
 
-    // Validate form fields with detailed logging
-    const missingFields: string[] = [];
-    for (const key in formData) {
-      // @ts-ignore
-      const value = formData[key];
-      if (!value || !value.toString().trim()) {
-        missingFields.push(key);
-      }
+    // For Stripe: only email is required; address is optional (Apple Pay/Google Pay will provide it)
+    if (!formData.email?.trim()) {
+      console.log('Email is required to create payment intent.');
+      setError('Please enter your email address.');
+      return;
     }
 
-    if (missingFields.length > 0) {
-      console.log('Form incomplete, cannot create payment intent. Missing fields:', missingFields);
-      console.log('Current formData:', formData);
-      return; // Don't create payment intent if form is incomplete
+    const hasFullAddress = !!(
+      formData.firstName?.trim() &&
+      formData.lastName?.trim() &&
+      formData.street?.trim() &&
+      formData.city?.trim() &&
+      formData.state?.trim() &&
+      formData.zip?.trim() &&
+      formData.country?.trim() &&
+      formData.phone?.trim()
+    );
+    const addressFromWallet = !hasFullAddress;
+    if (addressFromWallet) {
+      console.log('✅ Address will be collected from Apple Pay / Google Pay (optional form)');
+    } else {
+      console.log('✅ Using address from form');
     }
-
-    console.log('✅ All form fields are complete:', formData);
 
     // Don't create if already created
     if (stripeClientSecret) {
@@ -762,21 +768,22 @@ export default function CartPage({ onNavigate }: CartPageProps) {
         country: formData.country
       });
 
-      // Create Stripe payment intent on backend
+      // Create Stripe payment intent on backend (address optional when using Apple Pay/Google Pay)
       const orderResponse = await postMethod({
         url: '/order/stripe',
         body: {
           cartId: finalCartId,
           amount: total * 1.08,
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          email: formData.email,
-          street: formData.street,
-          city: formData.city,
-          state: formData.state,
-          zipCode: formData.zip,
-          country: formData.country,
-          phone: formData.phone
+          firstName: formData.firstName?.trim() || undefined,
+          lastName: formData.lastName?.trim() || undefined,
+          email: formData.email.trim(),
+          street: formData.street?.trim() || undefined,
+          city: formData.city?.trim() || undefined,
+          state: formData.state?.trim() || undefined,
+          zipCode: formData.zip?.trim() || undefined,
+          country: formData.country?.trim() || undefined,
+          phone: formData.phone?.trim() || undefined,
+          addressFromWallet: addressFromWallet
         }
       });
 
@@ -816,29 +823,30 @@ export default function CartPage({ onNavigate }: CartPageProps) {
     }
   };
 
-  // Create payment intent when Stripe is selected and form is filled
+  // Create payment intent when Stripe is selected and at least email is filled (address optional for Apple Pay/Google Pay)
   useEffect(() => {
     if (paymentMethod === 'STRIPE' && showCheckoutForm) {
-      // Check if form is complete
-      const isFormComplete = formData.firstName?.trim() && 
-                            formData.lastName?.trim() && 
-                            formData.email?.trim() && 
-                            formData.street?.trim() && 
-                            formData.city?.trim() && 
-                            formData.state?.trim() && 
-                            formData.zip?.trim() && 
-                            formData.country?.trim() && 
-                            formData.phone?.trim();
-      
-      if (isFormComplete && !stripeClientSecret && !stripeLoading) {
-        console.log('✅ Form is complete, creating payment intent...');
-        // Small delay to ensure all state updates are processed
+      const hasEmail = !!formData.email?.trim();
+      const hasFullAddress = !!(
+        formData.firstName?.trim() &&
+        formData.lastName?.trim() &&
+        formData.street?.trim() &&
+        formData.city?.trim() &&
+        formData.state?.trim() &&
+        formData.zip?.trim() &&
+        formData.country?.trim() &&
+        formData.phone?.trim()
+      );
+      const canCreatePaymentIntent = hasEmail && (hasFullAddress || true); // Email required; address optional
+
+      if (canCreatePaymentIntent && !stripeClientSecret && !stripeLoading) {
+        console.log('✅ Email present, creating payment intent (address optional for Apple Pay/Google Pay)...');
         const timer = setTimeout(() => {
           createStripePaymentIntent();
         }, 500);
         return () => clearTimeout(timer);
-      } else if (!isFormComplete) {
-        console.log('⏳ Form not complete yet. Missing fields will be shown in console if you click Initialize Payment.');
+      } else if (!hasEmail) {
+        console.log('⏳ Enter your email to load payment options, or fill full address.');
       }
     } else if (paymentMethod !== 'STRIPE') {
       // Clear client secret when switching away from Stripe
@@ -860,13 +868,10 @@ export default function CartPage({ onNavigate }: CartPageProps) {
 
   // Handle Stripe Payment
   const handleStripePayment = async () => {
-    // Validate form fields
-    for (const key in formData) {
-      // @ts-ignore
-      if (!formData[key]?.trim()) {
-        setError("Please fill all required fields.");
-        return;
-      }
+    // For Stripe: only email is required; address can come from Apple Pay/Google Pay
+    if (!formData.email?.trim()) {
+      setError("Please enter your email address.");
+      return;
     }
 
     if (!stripeLoaded || typeof window.Stripe === 'undefined') {
@@ -901,27 +906,50 @@ export default function CartPage({ onNavigate }: CartPageProps) {
         return;
       }
 
+      // Build billing_details: use form if full address filled; otherwise let Stripe collect from Apple Pay/Google Pay
+      const hasFullAddress = !!(
+        formData.firstName?.trim() &&
+        formData.lastName?.trim() &&
+        formData.street?.trim() &&
+        formData.city?.trim() &&
+        formData.state?.trim() &&
+        formData.zip?.trim() &&
+        formData.country?.trim() &&
+        formData.phone?.trim()
+      );
+      const confirmParams: any = {
+        return_url: window.location.origin + '/order-success',
+      };
+      if (hasFullAddress) {
+        confirmParams.payment_method_data = {
+          billing_details: {
+            name: `${formData.firstName} ${formData.lastName}`,
+            email: formData.email,
+            phone: formData.phone,
+            address: {
+              line1: formData.street,
+              city: formData.city,
+              state: formData.state,
+              postal_code: formData.zip,
+              country: getCountryCode(formData.country)
+            }
+          }
+        };
+      } else {
+        confirmParams.payment_method_data = {
+          billing_details: {
+            email: formData.email,
+            name: [formData.firstName, formData.lastName].filter(Boolean).join(' ') || undefined,
+            phone: formData.phone?.trim() || undefined
+          }
+        };
+      }
+
       // Step 2: Confirm payment using Payment Element
       const { error: confirmError, paymentIntent } = await stripe.confirmPayment({
         elements,
         clientSecret: stripeClientSecret,
-        confirmParams: {
-          return_url: window.location.origin + '/order-success',
-          payment_method_data: {
-            billing_details: {
-              name: `${formData.firstName} ${formData.lastName}`,
-              email: formData.email,
-              phone: formData.phone,
-              address: {
-                line1: formData.street,
-                city: formData.city,
-                state: formData.state,
-                postal_code: formData.zip,
-                country: getCountryCode(formData.country)
-              }
-            }
-          }
-        },
+        confirmParams,
         redirect: 'if_required' // Only redirect if required (e.g., 3D Secure)
       });
 
@@ -932,13 +960,31 @@ export default function CartPage({ onNavigate }: CartPageProps) {
         return;
       }
 
-      // Step 2: Verify payment on backend
+      // Step 2: Verify payment on backend and send address from wallet if present (Apple Pay/Google Pay)
       if (paymentIntent && paymentIntent.status === 'succeeded') {
+        const shippingFromWallet =
+          (paymentIntent as any).shipping
+            ? {
+                name: (paymentIntent as any).shipping?.name,
+                phone: (paymentIntent as any).shipping?.phone,
+                address: (paymentIntent as any).shipping?.address
+                  ? {
+                      line1: (paymentIntent as any).shipping.address.line1,
+                      city: (paymentIntent as any).shipping.address.city,
+                      state: (paymentIntent as any).shipping.address.state,
+                      postal_code: (paymentIntent as any).shipping.address.postal_code,
+                      country: (paymentIntent as any).shipping.address.country
+                    }
+                  : undefined
+              }
+            : undefined;
+
         const verifyResponse = await postMethod({
           url: '/order/confirmstripe',
           body: {
             paymentIntentId: paymentIntent.id,
-            orderId: stripeOrderId || null // Send stored orderId if available
+            orderId: stripeOrderId || null,
+            shippingFromWallet: shippingFromWallet || undefined
           }
         });
 
@@ -1176,12 +1222,9 @@ export default function CartPage({ onNavigate }: CartPageProps) {
                           }
                           setPaymentElement(null);
                         }
-                        // Trigger payment intent creation if form is complete
+                        // Trigger payment intent creation when email is present (address optional for Apple Pay/Google Pay)
                         setTimeout(() => {
-                          const isFormComplete = formData.firstName && formData.lastName && formData.email && 
-                                                formData.street && formData.city && formData.state && 
-                                                formData.zip && formData.country && formData.phone;
-                          if (isFormComplete) {
+                          if (formData.email?.trim()) {
                             createStripePaymentIntent();
                           }
                         }, 100);
@@ -1314,7 +1357,7 @@ export default function CartPage({ onNavigate }: CartPageProps) {
                                 ) : (
                                   <>
                                     <p>Loading payment options...</p>
-                                    <p className="text-xs mt-2">Please fill all form fields above</p>
+                                    <p className="text-xs mt-2">Enter your email above to load. Address is optional—Apple Pay / Google Pay will use your saved address.</p>
                                     <button
                                       type="button"
                                       onClick={() => {
